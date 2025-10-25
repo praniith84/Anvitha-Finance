@@ -1,0 +1,1579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Anvitha Finance – Reports & Analytics</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Segoe UI,Tahoma,Arial,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);margin-left:80px}
+    .container{max-width:1200px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.12)}
+    .header{padding:28px;text-align:center;background:linear-gradient(135deg,#2c3e50,#3498db);color:#fff;position:relative}
+    .content{padding:22px}
+    .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:14px;align-items:end}
+    label{display:block;margin-bottom:6px;font-weight:600;color:#2c3e50}
+    input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid #e6e9ee;background:#fbfcfd}
+    .btn{display:inline-block;padding:10px 14px;border-radius:8px;border:none;background:#3498db;color:#fff;cursor:pointer;margin-right:8px;font-size:0.9rem;font-weight:600;transition:all 0.3s}
+    .btn:hover{background:#2980b9;transform:translateY(-2px)}
+    .btn.warn{background:#f39c12}
+    .btn.warn:hover{background:#e67e22}
+    .btn.success{background:#27ae60}
+    .btn.success:hover{background:#229954}
+    .btn.quick{background:#9b59b6;padding:8px 16px;font-size:0.85rem}
+    .btn.quick:hover{background:#8e44ad}
+    .btn.section-header{background:#9b59b6 !important;padding:10px 20px !important;font-size:1rem !important;font-weight:700 !important}
+    .btn.section-header:hover{background:#8e44ad !important}
+    .message{padding:10px;border-radius:8px;margin-bottom:12px;display:none}
+    .cards{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+    .card{flex:1;min-width:160px;background:#fff;padding:18px;border-radius:8px;border-left:6px solid #3498db;box-shadow:0 6px 18px rgba(0,0,0,0.04)}
+    .card h3{margin-bottom:6px}
+    .small-muted{font-size:0.9em;opacity:0.7}
+    .results-table{width:100%;border-collapse:collapse;margin-top:12px}
+    .results-table th{background:#2c3e50;color:#fff;padding:10px;text-align:left;position:sticky;top:0}
+    .results-table td{padding:8px;border-bottom:1px solid #eee}
+    .table-scroll{max-height:420px;overflow:auto;border-radius:6px}
+    .loading{display:none;text-align:center;padding:10px}
+    .controls{display:flex;gap:10px;align-items:center}
+    .muted{color:#6c757d;font-size:0.95rem}
+    .quick-buttons{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+
+    /* ===== TAB STYLES ===== */
+    .tabs {
+      display: flex;
+      background: #ecf0f1;
+      border-bottom: 3px solid #3498db;
+      gap: 0;
+    }
+    
+    .tab {
+      flex: 1;
+      padding: 16px 24px;
+      background: #ecf0f1;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #7f8c8d;
+      transition: all 0.3s;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .tab:hover {
+      background: #d5dbdb;
+      color: #2c3e50;
+    }
+    
+    .tab.active {
+      background: #fff;
+      color: #3498db;
+      border-bottom-color: #3498db;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+
+    
+    /* ===== TOAST NOTIFICATION STYLES ===== */
+    .toast-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(2px);
+        z-index: 9998;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+    
+    .toast-backdrop.show {
+        opacity: 1;
+        pointer-events: all;
+    }
+    
+    .toast-container-center {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        pointer-events: none;
+        max-width: 90%;
+        width: 400px;
+    }
+    
+    .toast {
+        background: white;
+        border-radius: 12px;
+        padding: 20px 24px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        display: flex;
+        align-items: flex-start;
+        opacity: 0;
+        transform: scale(0.7);
+        pointer-events: all;
+        animation: slideInScale 0.3s ease-out forwards;
+        border-left: 5px solid #3498db;
+    }
+    
+    .toast.success {
+        border-left-color: #27ae60;
+    }
+    
+    .toast.error {
+        border-left-color: #e74c3c;
+    }
+    
+    .toast.loading {
+        border-left-color: #3498db;
+    }
+    
+    .toast.show {
+        opacity: 1;
+        transform: scale(1);
+    }
+    
+    .toast-content {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        width: 100%;
+    }
+    
+    .toast-icon {
+        font-size: 24px;
+        flex-shrink: 0;
+    }
+    
+    .toast.success .toast-icon {
+        color: #27ae60;
+    }
+    
+    .toast.error .toast-icon {
+        color: #e74c3c;
+    }
+    
+    .toast.loading .toast-icon {
+        color: #3498db;
+    }
+    
+    .toast-message {
+        flex: 1;
+        font-size: 15px;
+        color: #2c3e50;
+        line-height: 1.4;
+    }
+    
+    .toast-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: #95a5a6;
+        cursor: pointer;
+        padding: 0;
+        margin-left: 8px;
+        line-height: 1;
+        transition: color 0.2s;
+    }
+    
+    .toast-close:hover {
+        color: #7f8c8d;
+    }
+    
+    .toast-spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #3498db;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        animation: spinToast 1s linear infinite;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes slideInScale {
+        from {
+            transform: scale(0.7);
+            opacity: 0;
+        }
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOut {
+        from {
+            transform: scale(1);
+            opacity: 1;
+        }
+        to {
+            transform: scale(0.7);
+            opacity: 0;
+        }
+    }
+    
+    .toast.hiding {
+        animation: slideOut 0.3s ease-out forwards;
+    }
+    
+    @keyframes spinToast {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    /* ===== END TOAST STYLES ===== */
+
+    /* ===== ICON-ONLY SIDEBAR WITH TOOLTIPS ===== */
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      height: 100vh;
+      width: 80px;
+      background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+      box-shadow: 4px 0 15px rgba(0,0,0,0.1);
+      z-index: 1000;
+      overflow-y: auto;
+      transition: all 0.3s ease;
+    }
+
+    .sidebar:hover {
+      width: 260px;
+    }
+
+    .sidebar-header {
+      padding: 20px;
+      background: rgba(0,0,0,0.2);
+      border-bottom: 2px solid rgba(255,255,255,0.1);
+      text-align: center;
+      min-height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sidebar-logo {
+      color: white;
+      font-size: 2rem;
+      transition: all 0.3s ease;
+    }
+
+    .sidebar-title {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .sidebar:hover .sidebar-logo {
+      display: none;
+    }
+
+    .sidebar:hover .sidebar-title {
+      display: flex;
+    }
+
+    .sidebar-title-main {
+      color: white;
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+
+    .sidebar-title-sub {
+      color: rgba(255,255,255,0.7);
+      font-size: 0.75rem;
+    }
+
+    .sidebar-menu {
+      padding: 15px 0;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      padding: 16px 0;
+      color: rgba(255,255,255,0.85);
+      text-decoration: none;
+      transition: all 0.3s ease;
+      border-left: 4px solid transparent;
+      position: relative;
+      justify-content: center;
+    }
+
+    .sidebar:hover .menu-item {
+      justify-content: flex-start;
+      padding: 14px 20px;
+    }
+
+    .menu-item:hover {
+      background: rgba(255,255,255,0.1);
+      color: white;
+      border-left-color: #3498db;
+    }
+
+    .menu-item.active {
+      background: rgba(52, 152, 219, 0.2);
+      color: white;
+      border-left-color: #3498db;
+      font-weight: 600;
+    }
+
+    .menu-icon {
+      font-size: 1.5rem;
+      width: 40px;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .sidebar:hover .menu-icon {
+      font-size: 1.3rem;
+      width: 28px;
+      margin-right: 12px;
+    }
+
+    .menu-text {
+      font-size: 0.9rem;
+      display: none;
+      white-space: nowrap;
+    }
+
+    .sidebar:hover .menu-text {
+      display: inline;
+    }
+
+    /* Tooltip for collapsed sidebar */
+    .menu-item::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #2c3e50;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      margin-left: 15px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      transition: opacity 0.3s ease;
+      z-index: 1001;
+    }
+
+    .menu-item::before {
+      content: '';
+      position: absolute;
+      left: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 6px solid transparent;
+      border-right-color: #2c3e50;
+      opacity: 0;
+      pointer-events: none;
+      margin-left: 9px;
+      transition: opacity 0.3s ease;
+      z-index: 1001;
+    }
+
+    .sidebar:not(:hover) .menu-item:hover::after,
+    .sidebar:not(:hover) .menu-item:hover::before {
+      opacity: 1;
+    }
+
+    .sidebar:hover .menu-item::after,
+    .sidebar:hover .menu-item::before {
+      display: none;
+    }
+
+    .sidebar-toggle {
+      display: none;
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 1001;
+      background: #2c3e50;
+      color: white;
+      border: none;
+      padding: 12px 15px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      font-size: 1.2rem;
+    }
+
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
+    }
+
+    .sidebar-overlay.active {
+      display: block;
+    }
+
+    @media (max-width: 768px) {
+      .sidebar {
+        transform: translateX(-100%);
+        width: 260px;
+      }
+
+      .sidebar.active {
+        transform: translateX(0);
+      }
+
+      .sidebar:hover {
+        width: 260px;
+      }
+
+      .sidebar-toggle {
+        display: block;
+      }
+
+      body {
+        margin-left: 0;
+      }
+
+      .container {
+        margin: 10px;
+      }
+    }
+    @media (max-width:720px){ .form-row{grid-template-columns:1fr} .cards{flex-direction:column} }
+  </style>
+</head>
+<body>
+  <!-- Toast Backdrop -->
+  <div class="toast-backdrop" id="toastBackdrop"></div>
+  
+  <!-- Toast Container -->
+  <div class="toast-container-center" id="toastContainer"></div>
+
+  <!-- SIDEBAR NAVIGATION -->
+  <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+  <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">🏍️</div>
+      <div class="sidebar-title">
+        <div class="sidebar-title-main">Anvitha Finance</div>
+        <div class="sidebar-title-sub">Loan Management System</div>
+      </div>
+    </div>
+
+    <div class="sidebar-menu">
+      <a href="index.html" class="menu-item" data-page="index" data-tooltip="Home">
+        <span class="menu-icon">🏠</span>
+        <span class="menu-text">Home</span>
+      </a>
+
+      <a href="entry.html" class="menu-item" data-page="entry" data-tooltip="New Loan Entry">
+        <span class="menu-icon">📝</span>
+        <span class="menu-text">New Loan Entry</span>
+      </a>
+
+      <a href="customer_search_kyc.html" class="menu-item" data-page="customer_search_kyc" data-tooltip="Customer Search">
+        <span class="menu-icon">🔍</span>
+        <span class="menu-text">Customer Search</span>
+      </a>
+
+      <a href="emi_collection_modifier.html" class="menu-item" data-page="emi_collection_modifier" data-tooltip="Loan/EMI Modifier">
+        <span class="menu-icon">✏️</span>
+        <span class="menu-text">Loan/EMI Modifier</span>
+      </a>
+
+      <a href="emi-collection.html" class="menu-item" data-page="emi-collection" data-tooltip="EMI Collections">
+        <span class="menu-icon">💰</span>
+        <span class="menu-text">EMI Collections</span>
+      </a>
+
+      <a href="enhanced_finance_report.html" class="menu-item active" data-page="enhanced_finance_report" data-tooltip="Analytics & Reports">
+        <span class="menu-icon">📊</span>
+        <span class="menu-text">Analytics & Reports</span>
+      </a>
+
+      <a href="all_loans_list.html" class="menu-item" data-page="all_loans_list" data-tooltip="All Loans List">
+        <span class="menu-icon">📋</span>
+        <span class="menu-text">All Loans List</span>
+      </a>
+
+      <a href="overdue_analysis.html" class="menu-item" data-page="overdue_analysis" data-tooltip="Overdue Analysis">
+        <span class="menu-icon">⚠️</span>
+        <span class="menu-text">Overdue's</span>
+      </a>
+
+      <a href="print_overdue_excel_format.html" class="menu-item" data-page="print_overdue_excel_format" data-tooltip="Print Report">
+        <span class="menu-icon">🖨️</span>
+        <span class="menu-text">Print Report</span>
+      </a>
+
+      <a href="loan-archival-system.html" class="menu-item" data-page="loan-archival-system" data-tooltip="Loan Archive">
+        <span class="menu-icon">🗄️</span>
+        <span class="menu-text">Loan Archive</span>
+      </a>
+
+      <a href="data-quality-report.html" class="menu-item" data-page="data-quality-report" data-tooltip="Data Quality">
+        <span class="menu-icon">✅</span>
+        <span class="menu-text">Data Quality</span>
+      </a>
+    </div>
+  </nav>
+
+  <div class="container" role="main">
+    <div class="header">
+      <h1 style="margin-bottom:6px">Reports & Analytics</h1>
+      <div style="opacity:.9">Comprehensive reporting and date-range analytics</div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab active" data-tab="emi" onclick="switchTab('emi')">
+        📅 EMI Collections Report
+      </button>
+      <button class="tab" data-tab="loan" onclick="switchTab('loan')">
+        💰 Loan Records (Ledger)
+      </button>
+    </div>
+
+    <div class="content">
+      <div id="message" class="message"></div>
+      <div id="loading" class="loading">Loading…</div>
+
+      <!-- TAB 1: EMI COLLECTIONS REPORT -->
+      <div id="emiTabContent" class="tab-content active">
+      <!-- DAILY REPORT -->
+      <section style="background:#f8f9fa;padding:16px;border-radius:8px;margin-bottom:18px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">
+          <button class="btn quick" onclick="toggleDailySection()" style="background:#9b59b6;padding:10px 20px;font-size:1rem;font-weight:700">
+            📅 Daily Reports
+          </button>
+        </div>
+
+        <div id="dailySectionContent" style="display:block">
+        <div class="form-row">
+          <div>
+            <label for="reportDate">Select Date</label>
+            <input id="reportDate" type="date" value="">
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn" id="btnDailyGenerate">Generate Report</button>
+            <button class="btn warn" id="btnDailyClear">Clear</button>
+          </div>
+        </div>
+
+        <div id="dailyReportArea" style="margin-top:14px;display:none">
+          <h4 id="dailyReportTitle" style="margin-bottom:8px"></h4>
+          <div class="cards" id="dailyCards"></div>
+          <div class="table-scroll">
+            <table class="results-table" id="dailyTable">
+              <thead>
+                <tr>
+                  <th>Collection ID</th><th>Loan Number</th><th>Customer Name</th><th>EMI Month</th>
+                  <th>Amount Paid</th><th>Principal Collected</th><th>Interest Collected</th><th>Status</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div style="margin-top:8px">
+            <button class="btn success" id="exportDaily">Export to CSV</button>
+            <button class="btn" id="printDaily">Print Report</button>
+          </div>
+        </div>
+        </div>
+      </section>
+
+      <!-- DATE RANGE REPORT -->
+      <section style="background:#f8f9fa;padding:16px;border-radius:8px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">
+          <h3 style="margin:0">Date Range Reports</h3>
+          
+          <!-- Quick Report Buttons -->
+          <button class="btn quick" onclick="generateQuickReport('week')">This Week</button>
+          <button class="btn quick" onclick="generateQuickReport('month')">This Month</button>
+          <button class="btn quick" onclick="generateQuickReport('year')">This Year</button>
+        </div>
+
+        <div class="form-row">
+          <div>
+            <label for="fromDate">From Date</label>
+            <input id="fromDate" type="date" value="">
+          </div>
+          <div>
+            <label for="toDate">To Date</label>
+            <input id="toDate" type="date" value="">
+          </div>
+          <div>
+            <label for="reportType">Report Type</label>
+            <select id="reportType">
+              <option value="collections">EMI Collections Only</option>
+              <option value="detailed">Detailed (group by date)</option>
+              <option value="viewloans">View Loans Only (disbursed in range)</option>
+            </select>
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn" id="btnRangeGenerate">Generate Report</button>
+            <button class="btn warn" id="btnRangeClear">Clear</button>
+          </div>
+        </div>
+
+        <div id="rangeReportArea" style="margin-top:14px;display:none">
+          <h4 id="rangeReportTitle" style="margin-bottom:8px"></h4>
+          <div class="cards" id="rangeCards"></div>
+
+          <div class="table-scroll" id="rangeTableWrap" style="margin-top:10px">
+            <!-- Two possible tables: summary or loans list -->
+            <table class="results-table" id="rangeTableSummary" style="display:none">
+              <thead>
+                <tr>
+                  <th>Date</th><th>EMI Count</th><th>Total Amount</th><th>Principal Collected</th><th>Interest Collected</th><th>Unique Loan Numbers</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+
+            <table class="results-table" id="rangeTableLoans" style="display:none">
+              <thead>
+                <tr>
+                  <th>Loan Number</th><th>Customer Name</th><th>Mobile</th><th>Village</th><th>Loan Amount</th><th>Disbursement Date</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div style="margin-top:8px">
+            <button class="btn success" id="exportRange">Export to CSV</button>
+            <button class="btn" id="printRange">Print Report</button>
+          </div>
+        </div>
+      </section>
+    </div>
+    <!-- END OF EMI TAB -->
+
+    <!-- TAB 2: LOAN RECORDS (LEDGER) -->
+    <div id="loanTabContent" class="tab-content">
+      <!-- LOAN DISBURSEMENTS SECTION -->
+      <section style="background:#f8f9fa;padding:16px;border-radius:8px;margin-bottom:18px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">
+          <button class="btn quick" onclick="toggleLoanDisbursementSection()" style="background:#27ae60;padding:10px 20px;font-size:1rem;font-weight:700">
+            💰 Loan Disbursements
+          </button>
+          
+          <!-- Quick Report Buttons -->
+          <button class="btn quick" onclick="generateLoanDisbursementQuickReport('week')" style="background:#27ae60">This Week</button>
+          <button class="btn quick" onclick="generateLoanDisbursementQuickReport('month')" style="background:#27ae60">This Month</button>
+          <button class="btn quick" onclick="generateLoanDisbursementQuickReport('year')" style="background:#27ae60">This Year</button>
+        </div>
+
+        <div id="loanDisbursementSectionContent" style="display:block">
+        <div class="form-row">
+          <div>
+            <label for="disbursementFromDate">From Date</label>
+            <input id="disbursementFromDate" type="date" value="">
+          </div>
+          <div>
+            <label for="disbursementToDate">To Date</label>
+            <input id="disbursementToDate" type="date" value="">
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn" style="background:#27ae60" id="btnDisbursementGenerate">Generate Report</button>
+            <button class="btn warn" id="btnDisbursementClear">Clear</button>
+          </div>
+        </div>
+
+        <div id="disbursementReportArea" style="margin-top:14px;display:none">
+          <h4 id="disbursementReportTitle" style="margin-bottom:8px"></h4>
+          <div class="cards" id="disbursementCards"></div>
+          <div class="table-scroll">
+            <table class="results-table" id="disbursementTable">
+              <thead>
+                <tr>
+                  <th>Loan Number</th>
+                  <th>Customer Name</th>
+                  <th>Mobile</th>
+                  <th>Village</th>
+                  <th>Loan Amount</th>
+                  <th>Disbursement Date</th>
+                  <th>No. of EMIs</th>
+                  <th>EMI Amount</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div style="margin-top:8px">
+            <button class="btn success" id="exportDisbursement">Export to CSV</button>
+            <button class="btn" id="printDisbursement">Print Report</button>
+          </div>
+        </div>
+        </div>
+      </section>
+    </div>
+    <!-- END OF LOAN TAB -->
+
+  </div>
+
+<script>
+  // =========== CONFIG - Update if needed ===========
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzPBMML2B8a6dMXMFL78dBIEeSRGG8yEhk2xn9BBEO_kx1kfan_Re73qOsIKAsjkQ8/exec';
+  const SECRET = 'ANVITHA_SUPER_SECRET_2025';
+  // =================================================
+
+  // Local caches & last displayed rows (for export)
+  let scheduleCache = {};
+  let lastDisplayed = { daily: [], rangeSummary: [], rangeLoans: [], disbursement: [] };
+
+  // ===== TOAST NOTIFICATION SYSTEM =====
+  let currentLoadingToast = null;
+
+  function showToast(message, type = 'success', duration = 5000) {
+      const container = document.getElementById('toastContainer');
+      const backdrop = document.getElementById('toastBackdrop');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      
+      let icon = '✓';
+      if (type === 'error') icon = '✕';
+      if (type === 'loading') icon = '<div class="toast-spinner"></div>';
+      
+      toast.innerHTML = `
+          <div class="toast-content">
+              <div class="toast-icon">${icon}</div>
+              <div class="toast-message">${message}</div>
+              ${type !== 'loading' ? '<button class="toast-close" onclick="closeToast(this)">×</button>' : ''}
+          </div>
+      `;
+      
+      container.appendChild(toast);
+      backdrop.classList.add('show');
+      setTimeout(() => toast.classList.add('show'), 10);
+      
+      if (type !== 'loading' && duration > 0) {
+          setTimeout(() => hideToast(toast), duration);
+      }
+      
+      return toast;
+  }
+
+  function hideToast(toast) {
+      const backdrop = document.getElementById('toastBackdrop');
+      const container = document.getElementById('toastContainer');
+      
+      toast.classList.add('hiding');
+      setTimeout(() => {
+          if (toast.parentNode) {
+              toast.parentNode.removeChild(toast);
+          }
+          if (container.children.length === 0) {
+              backdrop.classList.remove('show');
+          }
+      }, 300);
+  }
+
+  function closeToast(button) {
+      const toast = button.closest('.toast');
+      hideToast(toast);
+  }
+
+  function hideLoadingToasts() {
+      const loadingToasts = document.querySelectorAll('.toast.loading');
+      loadingToasts.forEach(toast => hideToast(toast));
+      if (currentLoadingToast) {
+          hideToast(currentLoadingToast);
+          currentLoadingToast = null;
+      }
+  }
+
+  // Toggle sidebar for mobile
+  function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    sidebar.classList.toggle('active');
+    overlay.classList.toggle('active');
+  }
+
+  // Tab switching function
+  function switchTab(tabName) {
+    // Hide all tab contents
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(content => {
+      content.classList.remove('active');
+    });
+    
+    // Remove active class from all tabs
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(tab => {
+      tab.classList.remove('active');
+    });
+    
+    // Show selected tab content
+    if (tabName === 'emi') {
+      document.getElementById('emiTabContent').classList.add('active');
+      document.querySelector('.tab[data-tab="emi"]').classList.add('active');
+    } else if (tabName === 'loan') {
+      document.getElementById('loanTabContent').classList.add('active');
+      document.querySelector('.tab[data-tab="loan"]').classList.add('active');
+    }
+  }
+
+  // Toggle Daily Reports section visibility
+  function toggleDailySection() {
+    const content = document.getElementById('dailySectionContent');
+    if (content.style.display === 'none') {
+      content.style.display = 'block';
+    } else {
+      content.style.display = 'none';
+    }
+  }
+
+  // Toggle Loan Disbursement section visibility
+  function toggleLoanDisbursementSection() {
+    const content = document.getElementById('loanDisbursementSectionContent');
+    if (content.style.display === 'none') {
+      content.style.display = 'block';
+    } else {
+      content.style.display = 'none';
+    }
+  }
+
+  // ===== QUICK REPORT FUNCTIONS =====
+  function generateQuickReport(period) {
+    const today = new Date();
+    let fromDate, toDate;
+    
+    if (period === 'week') {
+      // Get start of this week (Monday)
+      const dayOfWeek = today.getDay();
+      const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Adjust when day is Sunday
+      fromDate = new Date(today);
+      fromDate.setDate(today.getDate() + diff);
+      toDate = new Date(today);
+    } else if (period === 'month') {
+      // Get start of this month
+      fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      toDate = new Date(today);
+    } else if (period === 'year') {
+      // Get start of this year
+      fromDate = new Date(today.getFullYear(), 0, 1);
+      toDate = new Date(today);
+    }
+    
+    // Format dates as YYYY-MM-DD
+    const formatDate = (date) => {
+      return date.getFullYear() + '-' + 
+             String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+             String(date.getDate()).padStart(2, '0');
+    };
+    
+    // Set the date range fields
+    document.getElementById('fromDate').value = formatDate(fromDate);
+    document.getElementById('toDate').value = formatDate(toDate);
+    document.getElementById('reportType').value = 'detailed';
+    
+    // Generate the report
+    generateRangeReport();
+  }
+
+  // ===== LOAN DISBURSEMENT QUICK REPORT FUNCTIONS =====
+  function generateLoanDisbursementQuickReport(period) {
+    const today = new Date();
+    let fromDate, toDate;
+    
+    if (period === 'week') {
+      const dayOfWeek = today.getDay();
+      const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      fromDate = new Date(today);
+      fromDate.setDate(today.getDate() + diff);
+      toDate = new Date(today);
+    } else if (period === 'month') {
+      fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      toDate = new Date(today);
+    } else if (period === 'year') {
+      fromDate = new Date(today.getFullYear(), 0, 1);
+      toDate = new Date(today);
+    }
+    
+    const formatDate = (date) => {
+      return date.getFullYear() + '-' + 
+             String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+             String(date.getDate()).padStart(2, '0');
+    };
+    
+    document.getElementById('disbursementFromDate').value = formatDate(fromDate);
+    document.getElementById('disbursementToDate').value = formatDate(toDate);
+    
+    generateLoanDisbursementReport();
+  }
+
+  // ===== LOAN DISBURSEMENT REPORT GENERATION =====
+  async function generateLoanDisbursementReport() {
+    const from = document.getElementById('disbursementFromDate').value;
+    const to = document.getElementById('disbursementToDate').value;
+
+    if (!from || !to) { 
+      alert('Select both From and To dates'); 
+      return; 
+    }
+    
+    showLoading(true);
+
+    try {
+      const url = `${SCRIPT_URL}?action=getNewLoans&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&secret=${encodeURIComponent(SECRET)}`;
+      const res = await fetch(url);
+      const body = await res.json();
+      
+      if (!body || body.status !== 'success') {
+        showMessage('No loans found or server error', 'error');
+        return;
+      }
+      
+      const loans = Array.isArray(body.rows) ? body.rows : (Array.isArray(body.data) ? body.data : []);
+      
+      if (loans.length === 0) {
+        showMessage('No loan disbursements found in this period', 'info');
+        document.getElementById('disbursementReportArea').style.display = 'none';
+        return;
+      }
+
+      // Calculate statistics
+      let totalLoanAmount = 0;
+      let totalEMIAmount = 0;
+      const uniqueCustomers = new Set();
+      const villages = new Set();
+
+      loans.forEach(loan => {
+        const loanAmt = parseFloat(loan['Loan Amount'] || loan['Loan Amount '] || 0) || 0;
+        const emiAmt = parseFloat(loan['Total EMI'] || loan['EMI Amount'] || 0) || 0;
+        totalLoanAmount += loanAmt;
+        totalEMIAmount += emiAmt;
+        
+        const customerName = (loan['Name of the customer'] || loan['Customer Name'] || '').trim();
+        if (customerName) uniqueCustomers.add(customerName);
+        
+        const village = (loan['Name of the village'] || loan['Village'] || '').trim();
+        if (village) villages.add(village);
+      });
+
+      // Display report
+      document.getElementById('disbursementReportArea').style.display = 'block';
+      document.getElementById('disbursementReportTitle').textContent = `Loan Disbursements: ${from} to ${to}`;
+      
+      // Render cards
+      const cards = [
+        { title: `${loans.length}`, subtitle: 'Loans Disbursed' },
+        { title: `₹${formatNumber(totalLoanAmount)}`, subtitle: 'Total Loan Amount' },
+        { title: `₹${formatNumber(totalEMIAmount)}`, subtitle: 'Total EMI Amount' },
+        { title: `${uniqueCustomers.size}`, subtitle: 'Unique Customers' },
+        { title: `${villages.size}`, subtitle: 'Villages Covered' }
+      ];
+      
+      const disbursementCards = document.getElementById('disbursementCards');
+      disbursementCards.innerHTML = '';
+      cards.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `<h3>${c.title}</h3><div class="small-muted">${c.subtitle}</div>`;
+        disbursementCards.appendChild(div);
+      });
+
+      // Render table
+      const tbody = document.querySelector('#disbursementTable tbody');
+      tbody.innerHTML = '';
+      
+      loans.forEach(loan => {
+        const loanNo = loan['Loan No'] || loan['Loan Number'] || '';
+        const customerName = loan['Name of the customer'] || loan['Customer Name'] || '';
+        const mobile = loan['Mobile No'] || loan['Mobile'] || '';
+        const village = loan['Name of the village'] || loan['Village'] || '';
+        const loanAmt = loan['Loan Amount'] || loan['Loan Amount '] || 0;
+        const numEMIs = loan['No of monthly instalments'] || loan['No. of EMIs'] || '';
+        const emiAmt = loan['Total EMI'] || loan['EMI Amount'] || 0;
+        
+        let disbDate = '';
+        for (const k of Object.keys(loan)) {
+          const kl = k.toLowerCase().replace(/\s+/g,'');
+          if (['dateofdisbursement','dateofdisbursal','disbursementdate','dateofloan','loandate','dateofinstallmentstarting','date'].some(dc => kl.indexOf(dc) !== -1)) {
+            disbDate = loan[k];
+            break;
+          }
+        }
+        if (!disbDate) disbDate = loan['Date of loan'] || loan['Date'] || '';
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(loanNo)}</td>
+          <td>${escapeHtml(customerName)}</td>
+          <td>${escapeHtml(mobile)}</td>
+          <td>${escapeHtml(village)}</td>
+          <td class="number">₹${formatNumber(Number(loanAmt))}</td>
+          <td>${escapeHtml(formatDisplayDate(disbDate))}</td>
+          <td class="number">${escapeHtml(numEMIs)}</td>
+          <td class="number">₹${formatNumber(Number(emiAmt))}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      lastDisplayed.disbursement = loans;
+      showMessage(`Found ${loans.length} loan disbursements`, 'success');
+      setTimeout(() => showMessage('', ''), 3000);
+      
+    } catch (err) {
+      console.error(err);
+      showMessage('Failed to generate disbursement report: ' + err.message, 'error');
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  function clearDisbursementReport() {
+    document.getElementById('disbursementReportArea').style.display = 'none';
+    document.getElementById('disbursementCards').innerHTML = '';
+    document.querySelector('#disbursementTable tbody').innerHTML = '';
+    lastDisplayed.disbursement = [];
+  }
+
+  // Helper function to format dates consistently
+  function formatDisplayDate(dateStr) {
+    if (!dateStr) return '';
+    
+    try {
+      let date;
+      
+      // If it's already in DD-MM-YYYY format, return as is
+      if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
+        return dateStr;
+      }
+      
+      // If it's in DD/MM/YYYY format, convert to DD-MM-YYYY
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+        return dateStr.replace(/\//g, '-');
+      }
+      
+      // Handle ISO format (2024-02-06T18:30:00.000Z) or YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+        date = new Date(dateStr);
+        if (!isNaN(date)) {
+          const day = String(date.getDate()).padStart(2, '0');
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const year = date.getFullYear();
+          return `${day}-${month}-${year}`;
+        }
+      }
+      
+      // Try to parse as general date
+      date = new Date(dateStr);
+      if (!isNaN(date)) {
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}-${month}-${year}`;
+      }
+      
+      // If all else fails, return original
+      return dateStr;
+    } catch (err) {
+      return dateStr;
+    }
+  }
+
+  // Fetch collections between from & to inclusive
+  async function fetchCollectionsInRange(from, to) {
+    const url = `${SCRIPT_URL}?action=searchEMIRecords&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&secret=${encodeURIComponent(SECRET)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Server error');
+    const body = await res.json();
+    if (body && body.status === 'success' && Array.isArray(body.records)) return body.records;
+    return [];
+  }
+
+  // Fetch schedule for loan (caches per loan)
+  async function fetchScheduleForLoan(loanNo) {
+    if (!loanNo) return {};
+    if (scheduleCache[loanNo]) return scheduleCache[loanNo];
+    try {
+      const url = `${SCRIPT_URL}?action=getEMISchedule&loanNo=${encodeURIComponent(loanNo)}&secret=${encodeURIComponent(SECRET)}`;
+      const res = await fetch(url);
+      const body = await res.json();
+      let raw = [];
+      if (body && Array.isArray(body.schedule)) raw = body.schedule;
+      else if (Array.isArray(body)) raw = body;
+      const map = {};
+      raw.forEach(r => {
+        const emiNo = String(r['EMI Number'] || r['EMI No'] || r['EMI'] || r['EMI_Number'] || r['EMINumber'] || '').toString();
+        const principal = Number(r['Principal Component'] || r['Principal'] || r['Principal Component '] || r['principal'] || 0) || 0;
+        let interest = Number(r['Interest Component'] || r['Interest'] || r['Interest_Component'] || r['interest'] || 0) || 0;
+        const emiAmount = Number(r['EMI Amount'] || r['EMIAmount'] || r['EMI_Amount'] || r['EMI'] || 0) || 0;
+        if ((interest === 0 || isNaN(interest)) && emiAmount && principal) {
+          const calcI = emiAmount - principal;
+          interest = calcI > 0 ? calcI : 0;
+        }
+        map[emiNo] = { principal, interest, emiAmount };
+      });
+      scheduleCache[loanNo] = map;
+      return map;
+    } catch (err) {
+      console.warn('schedule fetch error', err);
+      scheduleCache[loanNo] = {};
+      return {};
+    }
+  }
+
+  // Proportional allocation of paid amount into principal & interest
+  function allocatePrincipalInterest(paid, scheduleItem) {
+    paid = Number(paid) || 0;
+    if (!scheduleItem || (scheduleItem.principal === 0 && scheduleItem.interest === 0)) {
+      return { principalCollected: paid, interestCollected: 0 };
+    }
+    const p = scheduleItem.principal || 0;
+    const i = scheduleItem.interest || 0;
+    const tot = p + i;
+    if (tot > 0) {
+      const pCollected = Math.round((paid * (p / tot)) * 100) / 100;
+      const iCollected = Math.round((paid - pCollected) * 100) / 100;
+      return { principalCollected: pCollected, interestCollected: iCollected };
+    }
+    return { principalCollected: paid, interestCollected: 0 };
+  }
+
+  // ---------------- DAILY REPORT ----------------
+  async function generateDailyReport() {
+    const date = document.getElementById('reportDate').value;
+    if (!date) { alert('Select a date'); return; }
+    showLoading(true);
+    try {
+      const collections = await fetchCollectionsInRange(date, date);
+      // fetch schedules for involved loans
+      const loans = [...new Set(collections.map(r => String(r['Loan Number'] || '').trim()).filter(Boolean))];
+      await Promise.all(loans.map(l => fetchScheduleForLoan(l)));
+
+      let totalEMIAmount = 0, totalPrincipal = 0, totalInterest = 0;
+      const uniqueCustomers = new Set();
+      const rows = [];
+
+      for (const rec of collections) {
+        const loanNo = String(rec['Loan Number'] || '').trim();
+        const emiNo = String(rec['EMI Month'] || rec['EMI Number'] || '').trim();
+        const amountPaid = Number(rec['Amount Paid'] || rec['Amoiunt Paid'] || rec['Amount'] || 0) || 0;
+        const emiAmt = Number(rec['EMI Amount'] || 0) || 0;
+        totalEMIAmount += emiAmt || amountPaid;
+
+        const scheduleItem = (scheduleCache[loanNo] || {})[emiNo] || { principal:0, interest:0, emiAmount: emiAmt || 0 };
+        const alloc = allocatePrincipalInterest(amountPaid, scheduleItem);
+        totalPrincipal += alloc.principalCollected;
+        totalInterest += alloc.interestCollected;
+        uniqueCustomers.add((rec['Customer Name'] || rec['Customer'] || '').toString().trim() || loanNo);
+
+        rows.push({
+          collectionId: rec['Collection ID'] || rec['CollectionID'] || '',
+          loanNo, customerName: rec['Customer Name'] || rec['Customer'] || '',
+          emiMonth: emiNo, amountPaid, principal: alloc.principalCollected, interest: alloc.interestCollected, status: rec['Status'] || ''
+        });
+      }
+
+      // render cards
+      document.getElementById('dailyReportArea').style.display = 'block';
+      document.getElementById('dailyReportTitle').textContent = `Daily Report for ${date}`;
+      const cards = [
+        { title: `${collections.length}`, subtitle: 'EMI Collections' },
+        { title: `₹${formatNumber(totalEMIAmount)}`, subtitle: 'Total EMI Amount' },
+        { title: `₹${formatNumber(totalPrincipal)}`, subtitle: 'Principal Collected' },
+        { title: `₹${formatNumber(totalInterest)}`, subtitle: 'Interest Collected' },
+        { title: `${uniqueCustomers.size}`, subtitle: 'Unique Customers' }
+      ];
+      const dailyCards = document.getElementById('dailyCards'); dailyCards.innerHTML = '';
+      cards.forEach(c => { const div = document.createElement('div'); div.className='card'; div.innerHTML=`<h3>${c.title}</h3><div class="small-muted">${c.subtitle}</div>`; dailyCards.appendChild(div); });
+
+      // render table
+      const tbody = document.querySelector('#dailyTable tbody'); tbody.innerHTML = '';
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${r.collectionId}</td><td>${r.loanNo}</td><td>${escapeHtml(r.customerName)}</td><td>${r.emiMonth}</td>
+                        <td>₹${formatNumber(r.amountPaid)}</td><td>₹${formatNumber(r.principal)}</td><td>₹${formatNumber(r.interest)}</td><td>${r.status}</td>`;
+        tbody.appendChild(tr);
+      });
+
+      lastDisplayed.daily = rows;
+    } catch (err) {
+      console.error(err);
+      showMessage('Failed to generate daily report: ' + err.message, 'error');
+    } finally { showLoading(false); }
+  }
+
+  function clearDailyReport() {
+    document.getElementById('dailyReportArea').style.display = 'none';
+    document.getElementById('dailyCards').innerHTML = '';
+    document.querySelector('#dailyTable tbody').innerHTML = '';
+    lastDisplayed.daily = [];
+  }
+
+  // ---------------- DATE RANGE REPORT ----------------
+  async function generateRangeReport() {
+    const from = document.getElementById('fromDate').value;
+    const to = document.getElementById('toDate').value;
+    const reportType = document.getElementById('reportType').value;
+
+    if (!from || !to) { alert('Select both From and To dates'); return; }
+    showLoading(true);
+
+    try {
+      if (reportType === 'viewloans') {
+        // Query Ledger for loans disbursed between dates
+        const url = `${SCRIPT_URL}?action=getNewLoans&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&secret=${encodeURIComponent(SECRET)}`;
+        const res = await fetch(url);
+        const body = await res.json();
+        if (!body || body.status !== 'success') {
+          showMessage('No loans found or server error', 'error');
+          return;
+        }
+        const rows = Array.isArray(body.rows) ? body.rows : (Array.isArray(body.data) ? body.data : []);
+        renderLoans(rows, from, to);
+        return;
+      }
+
+      // EMI collections report
+      const collections = await fetchCollectionsInRange(from, to);
+      const loans = [...new Set(collections.map(r => String(r['Loan Number'] || '').trim()).filter(Boolean))];
+      await Promise.all(loans.map(l => fetchScheduleForLoan(l)));
+
+      let totalEmiCollections = collections.length, totalEmiAmount = 0, totalPrincipal = 0, totalInterest = 0;
+      const uniqueCustomersOverall = new Set();
+      const dateMap = {};
+
+      for (const rec of collections) {
+        const loanNo = String(rec['Loan Number'] || '').trim();
+        const emiNo = String(rec['EMI Month'] || rec['EMI Number'] || '').trim();
+        const amountPaid = Number(rec['Amount Paid'] || rec['Amoiunt Paid'] || rec['Amount'] || 0) || 0;
+        const emiAmt = Number(rec['EMI Amount'] || 0) || 0;
+        totalEmiAmount += emiAmt || amountPaid;
+
+        const scheduleItem = (scheduleCache[loanNo] || {})[emiNo] || { principal:0, interest:0, emiAmount: emiAmt || 0 };
+        const alloc = allocatePrincipalInterest(amountPaid, scheduleItem);
+        totalPrincipal += alloc.principalCollected;
+        totalInterest += alloc.interestCollected;
+
+        const customerName = (rec['Customer Name'] || rec['Customer'] || '').toString().trim() || loanNo;
+        uniqueCustomersOverall.add(customerName);
+
+        const dateKey = normalizedDateKey(rec['Collection Date'] || rec['CollectionDate'] || rec['Date']);
+        if (!dateKey) continue;
+
+        if (!dateMap[dateKey]) {
+          dateMap[dateKey] = { totalAmt:0, principalCollected:0, interestCollected:0, emiCount:0, uniqCust:new Set(), loanNumbers:new Set() };
+        }
+        dateMap[dateKey].totalAmt += amountPaid;
+        dateMap[dateKey].principalCollected += alloc.principalCollected;
+        dateMap[dateKey].interestCollected += alloc.interestCollected;
+        dateMap[dateKey].emiCount++;
+        dateMap[dateKey].uniqCust.add(customerName);
+        if (loanNo) dateMap[dateKey].loanNumbers.add(loanNo);
+      }
+
+      const tableRows = [];
+      for (const dateKey of Object.keys(dateMap).sort()) {
+        const {totalAmt, principalCollected, interestCollected, emiCount, uniqCust, loanNumbers} = dateMap[dateKey];
+        const loanNumbersArray = Array.from(loanNumbers).sort((a,b)=>a.localeCompare(b));
+        const loanNumbersDisplay = (reportType === 'detailed' && loanNumbersArray.length > 0) 
+          ? loanNumbersArray.join(', ')
+          : '';
+        
+        tableRows.push({
+          date: dateKey, emiCount, totalAmount: totalAmt,
+          principalCollected, interestCollected, 
+          uniqueCustomers: uniqCust.size,
+          loanNumbersDisplay: loanNumbersDisplay
+        });
+      }
+
+      // render cards
+      document.getElementById('rangeReportArea').style.display = 'block';
+      document.getElementById('rangeReportTitle').textContent = `Date Range Report: ${from} to ${to}`;
+      const rcards = [
+        { title: `${totalEmiCollections}`, subtitle: 'Total EMI Collections' },
+        { title: `₹${formatNumber(totalEmiAmount)}`, subtitle: 'Total EMI Amount' },
+        { title: `₹${formatNumber(totalPrincipal)}`, subtitle: 'Total Principal Collected' },
+        { title: `₹${formatNumber(totalInterest)}`, subtitle: 'Total Interest Collected' },
+        { title: `${uniqueCustomersOverall.size}`, subtitle: 'Unique Customers (EMI)' }
+      ];
+      const rangeCards = document.getElementById('rangeCards'); rangeCards.innerHTML = '';
+      rcards.forEach(c => { const div=document.createElement('div'); div.className='card'; div.innerHTML=`<h3>${c.title}</h3><div class="small-muted">${c.subtitle}</div>`; rangeCards.appendChild(div); });
+
+      // render summary table
+      const summary = document.getElementById('rangeTableSummary');
+      const loansTbl = document.getElementById('rangeTableLoans');
+      summary.style.display = ''; loansTbl.style.display = 'none';
+      const tbody = summary.querySelector('tbody'); tbody.innerHTML = '';
+      tableRows.forEach(tr => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>${formatDisplayDate(tr.date)}</td><td>${tr.emiCount}</td><td>₹${formatNumber(tr.totalAmount)}</td><td>₹${formatNumber(tr.principalCollected)}</td><td>₹${formatNumber(tr.interestCollected)}</td><td>${tr.loanNumbersDisplay}</td>`;
+        tbody.appendChild(row);
+      });
+      lastDisplayed.rangeSummary = tableRows;
+    } catch (err) {
+      console.error(err);
+      showMessage('Failed to generate range report: ' + err.message, 'error');
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  function clearRangeReport() {
+    document.getElementById('rangeReportArea').style.display = 'none';
+    document.getElementById('rangeCards').innerHTML = '';
+    document.querySelector('#rangeTableSummary tbody').innerHTML = '';
+    document.querySelector('#rangeTableLoans tbody').innerHTML = '';
+    lastDisplayed.rangeSummary = []; lastDisplayed.rangeLoans = [];
+  }
+
+  // ---------------- VIEW LOANS (Ledger) render ----------------
+  function renderLoans(rows, from, to) {
+    document.getElementById('rangeReportArea').style.display = 'block';
+    document.getElementById('rangeReportTitle').textContent = `Loans Disbursed: ${from} to ${to}`;
+
+    // Calculate total loan amount
+    const totalLoanAmount = rows.reduce((sum, r) => {
+      const amt = parseFloat(r['Loan Amount'] || r['Loan Amount '] || 0) || 0;
+      return sum + amt;
+    }, 0);
+
+    const rcards = [
+      { title: `${rows.length}`, subtitle: 'Loans Disbursed' },
+      { title: `₹${formatNumber(totalLoanAmount)}`, subtitle: 'Total Loan Amount' }
+    ];
+    const rangeCards = document.getElementById('rangeCards'); rangeCards.innerHTML = '';
+    rcards.forEach(c => { const div=document.createElement('div'); div.className='card'; div.innerHTML=`<h3>${c.title}</h3><div class="small-muted">${c.subtitle}</div>`; rangeCards.appendChild(div); });
+
+    // render loans table
+    const summary = document.getElementById('rangeTableSummary');
+    const loansTbl = document.getElementById('rangeTableLoans');
+    summary.style.display = 'none'; loansTbl.style.display = '';
+    const tbody = loansTbl.querySelector('tbody'); tbody.innerHTML = '';
+    rows.forEach(r => {
+      const loanNo = r['Loan No'] || r['Loan Number'] || r['LoanNo'] || '';
+      const name = r['Name of the customer'] || r['Customer Name'] || r['Customer'] || r['Name'] || '';
+      const mobile = r['Mobile No'] || r['Mobile'] || r['Mobile No.'] || r['MobileNumber'] || '';
+      const village = r['Name of the village'] || r['Village'] || r['Village Name'] || r['Name of village'] || '';
+      const loanAmt = r['Loan Amount'] || r['Loan Amount '] || r['LoanAmount'] || '';
+      let disb = '';
+      for (const k of Object.keys(r)) {
+        const kl = k.toLowerCase().replace(/\s+/g,'');
+        if (['dateofdisbursement','dateofdisbursal','disbursementdate','dateofloan','loandate','dateofinstallmentstarting','date'].some(dc => kl.indexOf(dc) !== -1)) { disb = r[k]; break;}
+      }
+      if (!disb) disb = r['Date of loan'] || r['Date'] || '';
+      
+      // Format the date consistently
+      const formattedDate = formatDisplayDate(disb);
+      
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${escapeHtml(loanNo)}</td><td>${escapeHtml(name)}</td><td>${escapeHtml(mobile)}</td><td>${escapeHtml(village)}</td><td>₹${formatNumber(Number(loanAmt)||0)}</td><td>${escapeHtml(formattedDate)}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    lastDisplayed.rangeLoans = rows;
+  }
+
+  // ---------------- EXPORT / PRINT ----------------
+  function exportDisplayedCSV(mode) {
+    let csv = '';
+    if (mode === 'daily') {
+      const rows = lastDisplayed.daily || [];
+      if (!rows.length) { alert('No data to export'); return; }
+      csv += ['Collection ID','Loan Number','Customer Name','EMI Month','Amount Paid','Principal Collected','Interest Collected','Status'].join(',') + '\n';
+      rows.forEach(r => {
+        csv += [csvSafe(r.collectionId), csvSafe(r.loanNo), csvSafe(r.customerName), csvSafe(r.emiMonth), csvSafe(r.amountPaid), csvSafe(r.principal), csvSafe(r.interest), csvSafe(r.status)].join(',') + '\n';
+      });
+    } else if (mode === 'rangeSummary') {
+      const rows = lastDisplayed.rangeSummary || [];
+      if (!rows.length) { alert('No data to export'); return; }
+      csv += ['Date','EMI Count','Total Amount','Principal Collected','Interest Collected','Unique Customers'].join(',') + '\n';
+      rows.forEach(r => {
+        csv += [csvSafe(formatDisplayDate(r.date)), csvSafe(r.emiCount), csvSafe(r.totalAmount), csvSafe(r.principalCollected), csvSafe(r.interestCollected), csvSafe(r.uniqueCustomers)].join(',') + '\n';
+      });
+    } else if (mode === 'rangeLoans') {
+      const rows = lastDisplayed.rangeLoans || [];
+      if (!rows.length) { alert('No data to export'); return; }
+      csv += ['Loan Number','Customer Name','Mobile','Village','Loan Amount','Disbursement Date'].join(',') + '\n';
+      rows.forEach(r => {
+        const loanNo = r['Loan No'] || r['Loan Number'] || r['LoanNo'] || '';
+        const name = r['Name of the customer'] || r['Customer Name'] || r['Customer'] || r['Name'] || '';
+        const mobile = r['Mobile No'] || r['Mobile'] || r['Mobile No.'] || r['MobileNumber'] || '';
+        const village = r['Name of the village'] || r['Village'] || r['Village Name'] || r['Name of village'] || '';
+        const loanAmt = r['Loan Amount'] || r['Loan Amount '] || r['LoanAmount'] || '';
+        let disb = '';
+        for (const k of Object.keys(r)) {
+          const kl = k.toLowerCase().replace(/\s+/g,'');
+          if (['dateofdisbursement','dateofdisbursal','disbursementdate','dateofloan','loandate','dateofinstallmentstarting','date'].some(dc => kl.indexOf(dc) !== -1)) { disb = r[k]; break;}
+        }
+        if (!disb) disb = r['Date of loan'] || r['Date'] || '';
+        
+        // Format the date consistently for export
+        const formattedDate = formatDisplayDate(disb);
+        
+        csv += [csvSafe(loanNo), csvSafe(name), csvSafe(mobile), csvSafe(village), csvSafe(loanAmt), csvSafe(formattedDate)].join(',') + '\n';
+      });
+    } else if (mode === 'disbursement') {
+      const rows = lastDisplayed.disbursement || [];
+      if (!rows.length) { alert('No data to export'); return; }
+      csv += ['Loan Number','Customer Name','Mobile','Village','Loan Amount','Disbursement Date','No. of EMIs','EMI Amount'].join(',') + '\n';
+      rows.forEach(r => {
+        const loanNo = r['Loan No'] || r['Loan Number'] || '';
+        const name = r['Name of the customer'] || r['Customer Name'] || '';
+        const mobile = r['Mobile No'] || r['Mobile'] || '';
+        const village = r['Name of the village'] || r['Village'] || '';
+        const loanAmt = r['Loan Amount'] || r['Loan Amount '] || '';
+        const numEMIs = r['No of monthly instalments'] || r['No. of EMIs'] || '';
+        const emiAmt = r['Total EMI'] || r['EMI Amount'] || '';
+        let disb = '';
+        for (const k of Object.keys(r)) {
+          const kl = k.toLowerCase().replace(/\s+/g,'');
+          if (['dateofdisbursement','dateofdisbursal','disbursementdate','dateofloan','loandate','dateofinstallmentstarting','date'].some(dc => kl.indexOf(dc) !== -1)) { disb = r[k]; break;}
+        }
+        if (!disb) disb = r['Date of loan'] || r['Date'] || '';
+        const formattedDate = formatDisplayDate(disb);
+        
+        csv += [csvSafe(loanNo), csvSafe(name), csvSafe(mobile), csvSafe(village), csvSafe(loanAmt), csvSafe(formattedDate), csvSafe(numEMIs), csvSafe(emiAmt)].join(',') + '\n';
+      });
+    } else {
+      alert('Unknown export mode');
+      return;
+    }
+
+    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `anvitha_report_${mode}_${Date.now()}.csv`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function printReport(mode) {
+    const printWindow = window.open('', '_blank', 'width=1000,height=800');
+    if (!printWindow) { alert('Pop-up blocked'); return; }
+    let html = '<html><head><title>Report</title><style>body{font-family:Arial}table{width:100%;border-collapse:collapse}th,td{padding:8px;border:1px solid #ccc}</style></head><body>';
+    if (mode === 'daily') {
+      html += `<h3>${document.getElementById('dailyReportTitle').textContent}</h3>` + document.getElementById('dailyTable').outerHTML;
+    } else if (mode === 'rangeSummary') {
+      html += `<h3>${document.getElementById('rangeReportTitle').textContent}</h3>` + document.getElementById('rangeTableSummary').outerHTML;
+    } else if (mode === 'rangeLoans') {
+      html += `<h3>${document.getElementById('rangeReportTitle').textContent}</h3>` + document.getElementById('rangeTableLoans').outerHTML;
+    } else if (mode === 'disbursement') {
+      html += `<h3>${document.getElementById('disbursementReportTitle').textContent}</h3>` + document.getElementById('disbursementTable').outerHTML;
+    }
+    html += '</body></html>';
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(()=>printWindow.print(), 600);
+  }
+
+  // Simple escape
+  function escapeHtml(s) { if (!s && s !== 0) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // Init datepickers
+  document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date();
+    const iso = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    const todayIso = iso(today);
+    document.getElementById('reportDate').value = todayIso;
+    document.getElementById('fromDate').value = todayIso;
+    document.getElementById('toDate').value = todayIso;
+    document.getElementById('disbursementFromDate').value = todayIso;
+    document.getElementById('disbursementToDate').value = todayIso;
+
+    document.getElementById('btnDailyGenerate').addEventListener('click', generateDailyReport);
+    document.getElementById('btnDailyClear').addEventListener('click', clearDailyReport);
+    document.getElementById('btnRangeGenerate').addEventListener('click', generateRangeReport);
+    document.getElementById('btnRangeClear').addEventListener('click', clearRangeReport);
+    document.getElementById('btnDisbursementGenerate').addEventListener('click', generateLoanDisbursementReport);
+    document.getElementById('btnDisbursementClear').addEventListener('click', clearDisbursementReport);
+
+    document.getElementById('exportDaily').addEventListener('click', () => exportDisplayedCSV('daily'));
+    document.getElementById('exportRange').addEventListener('click', () => {
+      const rt = document.getElementById('reportType').value;
+      if (rt === 'viewloans') exportDisplayedCSV('rangeLoans'); else exportDisplayedCSV('rangeSummary');
+    });
+    document.getElementById('exportDisbursement').addEventListener('click', () => exportDisplayedCSV('disbursement'));
+    
+    document.getElementById('printDaily').addEventListener('click', () => printReport('daily'));
+    document.getElementById('printRange').addEventListener('click', () => {
+      const rt = document.getElementById('reportType').value;
+      printReport(rt === 'viewloans' ? 'rangeLoans' : 'rangeSummary');
+    });
+    document.getElementById('printDisbursement').addEventListener('click', () => printReport('disbursement'));
+
+    // Highlight active page in sidebar
+    const currentPage = window.location.pathname.split('/').pop().replace('.html', '');
+    const menuItems = document.querySelectorAll('.menu-item');
+    menuItems.forEach(item => {
+      const pageName = item.getAttribute('data-page');
+      if (pageName === currentPage) {
+        item.classList.add('active');
+      }
+    });
+  });
+
+  // ---------------- Helpers ----------------
+  function showMessage(text, type='success') {
+    // Updated to use toast notifications
+    showToast(text, type, type === 'error' ? 7000 : 5000);
+    
+    // Keep old message element hidden for compatibility
+    const el = document.getElementById('message');
+    el.style.display = 'none';
+  }
+  function showLoading(on=true) { 
+    // Hide old loading element
+    document.getElementById('loading').style.display = 'none';
+    
+    if (on) {
+      if (!currentLoadingToast) {
+        currentLoadingToast = showToast('📊 Generating report...', 'loading', 0);
+      }
+    } else {
+      if (currentLoadingToast) {
+        hideToast(currentLoadingToast);
+        currentLoadingToast = null;
+      }
+      hideLoadingToasts();
+    }
+  }
+
+  function csvSafe(v) { if (v === null || v === undefined) return ''; return `"${String(v).replace(/"/g,'""')}"`; }
+  function formatNumber(n) { return Math.floor(n).toLocaleString('en-IN'); }
+  function normalizedDateKey(raw) {
+    if (!raw) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    if (/^\d{2}-\d{2}-\d{4}$/.test(raw)) { const [d,m,y]=raw.split('-'); return `${y}-${m}-${d}`; }
+    const d = new Date(raw);
+    if (!isNaN(d)) return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    return raw;
+  }
+
+  // -------------------------------------------------
+  // End of script
+  // -------------------------------------------------
+</script>
+</body>
+</html>

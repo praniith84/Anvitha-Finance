@@ -1,0 +1,4624 @@
+/** Code.gs - Anvitha Finance consolidated server file
+ *  Paste into Google Apps Script (replace existing Code.gs), Save, then Deploy (new version).
+ *
+ *  Expected Sheets (exact names): Ledger, emi_collection, emi_schedule
+ *  Config below: SECRET, SHEET_ID - update if needed.
+ */
+
+// ---- CONFIG ----
+const SECRET = 'ANVITHA_SUPER_SECRET_2025';
+const SHEET_LEDGER = 'Ledger';
+const SHEET_COLLECTION = 'emi_collection';
+const SHEET_CALC = 'emi_schedule';
+const SHEET_ID = '1UKlhFxgU67_SyjMYNLGNcA21cgWONMiNXRwhzrcs4T4';
+const HISTORICAL_SHEET_ID = '1QhhMAd8hGTx9vtYzNby1cuNhGPu0cNT5wSqed7CdOd0';
+
+/* ==========================================================================
+   STATUS NORMALIZATION HELPERS
+   ========================================================================== */
+
+/**
+ * Normalize status value to lowercase for comparison
+ * Handles null, undefined, and mixed case inputs
+ */
+function normalizeStatus(statusValue) {
+  if (statusValue === null || statusValue === undefined) {
+    return '';
+  }
+  return String(statusValue).trim().toLowerCase();
+}
+
+/**
+ * Check if status is "Paid"
+ */
+function isPaidStatus(statusValue) {
+  return normalizeStatus(statusValue) === 'paid';
+}
+
+/**
+ * Check if status is "Partial"
+ */
+function isPartialStatus(statusValue) {
+  return normalizeStatus(statusValue) === 'partial';
+}
+
+/**
+ * Check if status is "Pending" or empty
+ */
+function isPendingStatus(statusValue) {
+  var normalized = normalizeStatus(statusValue);
+  return normalized === 'pending' || normalized === '';
+}
+
+/**
+ * Check if status is NOT "Paid"
+ */
+function isNotPaid(statusValue) {
+  return !isPaidStatus(statusValue);
+}
+
+/**
+ * Get standardized Title Case status for writing to sheets
+ * @returns {string} "Paid", "Partial", or "Pending"
+ */
+function getStandardStatus(statusValue) {
+  var normalized = normalizeStatus(statusValue);
+  if (normalized === 'paid') return 'Paid';
+  if (normalized === 'partial') return 'Partial';
+  return 'Pending';
+}
+
+/**
+ * Determine status based on amount paid vs EMI amount
+ * @returns {string} "Paid", "Partial", or "Pending"
+ */
+function calculateStatus(amountPaid, emiAmount) {
+  amountPaid = Number(amountPaid) || 0;
+  emiAmount = Number(emiAmount) || 0;
+  
+  if (emiAmount === 0) return 'Pending';
+  if (amountPaid >= emiAmount) return 'Paid';
+  if (amountPaid > 0) return 'Partial';
+  return 'Pending';
+}
+
+// ---- WEB ENTRY POINTS ----
+function doGet(e) {
+  try {
+    if (!e.parameter || e.parameter.secret !== SECRET) {
+      return jsonResponse({ status: 'error', message: 'Invalid or missing secret' });
+    }
+    var action = (e.parameter.action || '').toString();
+
+    switch (action) {
+      case 'lookupCustomer':
+        return jsonResponse(lookupCustomerByLoan(e.parameter.loanNo));
+        
+      case 'getEMISchedule':
+        return jsonResponse(getEMISchedule(e.parameter.loanNo));
+      
+      case 'getClosedEMISchedule':
+  var loanNo = e.parameter.loanNo;
+  if (!loanNo) {
+    return jsonResponse({status: 'error', message: 'Loan number required'});
+  }
+  try {
+    var schedSheet = getSheetByNameOrThrow('Closed_emi_schedule');
+    var scheduleData = getScheduleFromSheet(schedSheet, loanNo);
+    return jsonResponse({status: 'success', schedule: scheduleData});
+  } catch (error) {
+    Logger.log('Error in getClosedEMISchedule: ' + error.message);
+    return jsonResponse({status: 'success', schedule: []});
+  }  
+        
+      case 'searchCustomers':
+        return jsonResponse(searchCustomers(e.parameter));
+        
+     case 'searchClosedLoan':
+  var loanNo = e.parameter.loanNo;
+  if (!loanNo) {
+    return jsonResponse({status: 'error', message: 'Loan number required'});
+  }
+  try {
+    Logger.log('Searching for closed loan: ' + loanNo);
+    var result = searchInClosedLoans('loanNo', loanNo);
+    if (result) {
+      Logger.log('Closed loan found');
+      return jsonResponse({status: 'success', loan: result});
+    } else {
+      Logger.log('Closed loan not found');
+      return jsonResponse({status: 'error', message: 'No closed loan found'});
+    }
+  } catch (error) {
+    Logger.log('Error in searchClosedLoan: ' + error.message);
+    return jsonResponse({status: 'error', message: error.message});
+  }
+      case 'getLoanNumbers':
+  return getLoanNumbers(e);
+
+      case 'getRefinanceCount':
+      var loanNo = e.parameter.loanNo;
+      return jsonResponse(getRefinanceCount(loanNo));
+
+      case 'searchCustomersAllSheets':
+        try {
+          Logger.log('Received searchCustomersAllSheets request');
+          Logger.log('All parameters: ' + JSON.stringify(e.parameter));
+          
+          const searchType = e.parameter.loanNo ? 'loanNo' : 
+                             e.parameter.customerName ? 'customerName' :
+                             e.parameter.mobile ? 'mobile' : 
+                             e.parameter.vehicleReg ? 'vehicleReg' : null;
+          
+          Logger.log('Search type determined: ' + searchType);
+          
+          const searchValue = e.parameter[searchType];
+          Logger.log('Search value: ' + searchValue);
+          
+          if (!searchType || !searchValue) {
+            Logger.log('Missing search type or value');
+            return jsonResponse({status: 'error', message: 'Invalid search parameters'});
+          }
+          
+          Logger.log('Searching in Ledger...');
+          let result = searchInLedger(searchType, searchValue);
+          
+          if (result) {
+            Logger.log('Found in Ledger');
+            return jsonResponse({status: 'success', data: [result], isClosed: false});
+          }
+          
+          Logger.log('Not found in Ledger, searching in Closed_Loans...');
+          result = searchInClosedLoans(searchType, searchValue);
+          
+          if (result) {
+            Logger.log('Found in Closed_Loans');
+            return jsonResponse({status: 'success', data: [result], isClosed: true});
+          }
+          
+          Logger.log('Not found in any sheet');
+          return jsonResponse({status: 'error', message: 'Not found', data: []});
+          
+        } catch (error) {
+          Logger.log('Error in searchCustomersAllSheets: ' + error.message);
+          return jsonResponse({status: 'error', message: 'Server error: ' + error.message});
+        }
+        
+      case 'getClosedEMISchedule':
+        var loanNo = e.parameter.loanNo;
+        if (!loanNo) {
+          return jsonResponse({status: 'error', message: 'Loan number required'});
+        }
+        try {
+          var calcSheet = getSheetByNameOrThrow('Closed_emi_schedule');
+          var schedule = getScheduleFromSheet(calcSheet, loanNo);
+          Logger.log('Found ' + schedule.length + ' closed schedule records');
+          return jsonResponse({status: 'success', schedule: schedule});
+        } catch (error) {
+          Logger.log('Error in getClosedEMISchedule: ' + error.message);
+          return jsonResponse({status: 'success', schedule: []});
+        }
+  
+      case 'searchClosedEMIRecords':
+        // Support both loanNo and date range queries
+        var params = {
+          loanNo: e.parameter.loanNo,
+          from: e.parameter.from,
+          to: e.parameter.to
+        };
+        
+        try {
+          var collSheet = getSheetByNameOrThrow('Closed_emi_collection');
+          var records = [];
+          
+          // If date range provided, search by date range
+          if (params.from || params.to) {
+            records = getCollectionsByDateRange(collSheet, params.from, params.to);
+            Logger.log('Found ' + records.length + ' closed collection records in date range');
+          }
+          // Otherwise search by loan number
+          else if (params.loanNo) {
+            records = getCollectionsFromSheet(collSheet, params.loanNo);
+            Logger.log('Found ' + records.length + ' closed collection records for loan ' + params.loanNo);
+          }
+          else {
+            return jsonResponse({status: 'error', message: 'Either loanNo or date range (from/to) required'});
+          }
+          
+          return jsonResponse({status: 'success', records: records});
+        } catch (error) {
+          Logger.log('Error in searchClosedEMIRecords: ' + error.message);
+          return jsonResponse({status: 'success', records: []});
+        }
+
+        
+        case 'getAllLoans':
+        return jsonResponse(getAllLoans());
+      
+      case 'getAllClosedLoans':
+         return jsonResponse(getAllClosedLoans());
+        
+
+      case 'searchEMIRecords':
+        return jsonResponse(searchEMIRecords(e.parameter));
+        
+      case 'getOverdue':
+        return jsonResponse(getOverdue(e.parameter));
+        
+      case 'getDashboardStats':
+        return jsonResponse(getDashboardStats());
+        
+      case 'exportEMIRecords':
+        return csvResponse(exportEMIRecords(e.parameter));
+        
+      case 'getLoanNumbers':
+        return jsonResponse(getLoanNumbers());
+        
+      case 'searchrecord':
+        return jsonResponse(searchRecord(e.parameter));
+        
+      case 'searchLoansByDateRange':
+        return jsonResponse(searchLoansByDateRange(e.parameter));
+        
+      case 'searchLoansByDate':
+        return jsonResponse(searchLoansByDate(e.parameter));
+        
+      case 'getAllEMISchedule':
+        return jsonResponse(getAllEMISchedule());
+        
+      case 'getNewLoans':
+        return jsonResponse(getNewLoans(e.parameter));
+        
+      case 'getReport':
+        return jsonResponse(getReport(e.parameter));
+        
+      case 'updateLoanFields':
+        return jsonResponse(updateLoanFields(payload));
+        
+      case 'getLoanClosureSummary':
+        return jsonResponse(getLoanClosureSummary(e.parameter.loanNo));
+        
+      case 'getOverdueWithCustomerDetails':
+        return jsonResponse(getOverdueWithCustomerDetails());
+        
+      case 'validateClosure':
+        return jsonResponse(validateEMICompletionForClosure(e.parameter.loanNo));
+        
+      case 'getAllLedger':
+        return jsonResponse(getAllLedger());
+        
+      case 'updateLastEmiDates':
+        return jsonResponse(updateLastEmiDates());
+        
+      default:
+        return jsonResponse({ status: 'error', message: 'Unknown action' });
+    }
+  } catch (err) {
+    return jsonResponse({ status: 'error', message: err.message });
+  }
+}
+// Add these lines between line 234 and 236 (before doPost)
+
+function searchClosedLoan(searchType, searchValue) {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var closedSheet = ss.getSheetByName('Closed_Loans');
+    
+    if (!closedSheet) {
+      return { 
+        status: 'error', 
+        message: 'Closed_Loans sheet not found. Please archive some loans first.' 
+      };
+    }
+    
+    var rows = getAllRowsAsObjects(closedSheet);
+    
+    if (!rows || rows.length === 0) {
+      return { 
+        status: 'error', 
+        message: 'No closed loans found in the archive.' 
+      };
+    }
+    
+    var searchField = {
+      'loanNo': 'Loan No',
+      'customerName': 'Name of the customer',
+      'mobile': 'Mobile No',
+      'vehicleReg': 'Registration Number'
+    }[searchType];
+    
+    if (!searchField) {
+      return { status: 'error', message: 'Invalid search type' };
+    }
+    
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var cellValue = String(row[searchField] || '').trim().toLowerCase();
+      var searchVal = String(searchValue).trim().toLowerCase();
+      
+      if (cellValue.indexOf(searchVal) !== -1 || searchVal.indexOf(cellValue) !== -1) {
+        Logger.log('Found closed loan: ' + row['Loan No']);
+        return { 
+          status: 'success', 
+          loan: row,
+          message: 'Closed loan found successfully'
+        };
+      }
+    }
+    
+    return { 
+      status: 'error', 
+      message: 'No closed loan found with the provided search value' 
+    };
+    
+  } catch (error) {
+    Logger.log('Error in searchClosedLoan: ' + error.message);
+    return { status: 'error', message: error.message };
+  }
+}
+// ADD THIS FUNCTION TO YOUR GOOGLE APPSCRIPT CODE (Code.gs)
+// Place it in the "LEDGER / SEARCH / HELPERS" section, after the searchCustomers function
+
+function searchEMIRecords(params) {
+  try {
+    var loanNo = (params.loanNo || '').toString().trim();
+    var from = params.from || '';
+    var to = params.to || '';
+    
+    // Get all collection records from emi_collection sheet
+    var rows = getAllRowsAsObjects(getSheetByNameOrThrow(SHEET_COLLECTION));
+    
+    // Filter by loan number if provided
+    if (loanNo) {
+      rows = rows.filter(function(r) {
+        return String(r['Loan Number'] || '').trim() === loanNo;
+      });
+    }
+    
+    // Filter by date range if provided
+    if (from && to) {
+      var fromDate = parseDateSafe(from);
+      var toDate = parseDateSafe(to);
+      
+      if (fromDate && toDate) {
+        rows = rows.filter(function(r) {
+          var collectionDate = parseDateSafe(r['Collection Date'] || r['CollectionDate'] || r['Date']);
+          if (!collectionDate) return false;
+          
+          return collectionDate >= startOfDay(fromDate) && collectionDate <= startOfDay(toDate);
+        });
+      }
+    }
+    
+    // Return the filtered records
+    return { 
+      status: 'success', 
+      records: rows 
+    };
+    
+  } catch (err) {
+    Logger.log('Error in searchEMIRecords: ' + err.message);
+    return { 
+      status: 'error', 
+      message: 'Error searching EMI records: ' + err.message,
+      records: [] 
+    };
+  }
+}
+
+/**
+ * Get all loans from the Ledger sheet
+ * Returns all loan records as an array of objects
+ */
+function getAllLoans() {
+  try {
+    Logger.log('=== getAllLoans called ===');
+    
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var ledgerSheet = ss.getSheetByName(SHEET_LEDGER);
+    
+    if (!ledgerSheet) {
+      Logger.log('Error: Ledger sheet not found');
+      return {
+        status: 'error',
+        message: 'Ledger sheet not found',
+        loans: []
+      };
+    }
+    
+    // Get all data from the sheet
+    var data = ledgerSheet.getDataRange().getValues();
+    
+    if (data.length <= 1) {
+      Logger.log('No loan records found in Ledger sheet');
+      return {
+        status: 'success',
+        message: 'No loan records found',
+        loans: [],
+        count: 0
+      };
+    }
+    
+    // First row contains headers
+    var headers = data[0];
+    var loans = [];
+    
+    // Convert each row to an object using headers as keys
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      var loan = {};
+      
+      // Skip completely empty rows
+      var isEmptyRow = true;
+      for (var j = 0; j < row.length; j++) {
+        if (row[j] !== '' && row[j] !== null && row[j] !== undefined) {
+          isEmptyRow = false;
+          break;
+        }
+      }
+      
+      if (isEmptyRow) {
+        continue;
+      }
+      
+      // Map each column to its header
+      for (var j = 0; j < headers.length; j++) {
+        var header = headers[j];
+        var value = row[j];
+        
+        // Format dates properly
+        if (header && (
+          header.toLowerCase().includes('date') || 
+          header === 'Date of loan' ||
+          header === 'Date of disbursement'
+        )) {
+          if (value instanceof Date) {
+            // Format as DD-MM-YYYY
+            var day = ('0' + value.getDate()).slice(-2);
+            var month = ('0' + (value.getMonth() + 1)).slice(-2);
+            var year = value.getFullYear();
+            value = day + '-' + month + '-' + year;
+          } else if (value && typeof value === 'string') {
+            // Keep string dates as is
+            value = value.toString();
+          }
+        }
+        
+        // Store the value with the header as key
+        loan[header] = value;
+      }
+      
+      loans.push(loan);
+    }
+    
+    Logger.log('Successfully retrieved ' + loans.length + ' loan records');
+    
+    return {
+      status: 'success',
+      message: 'Loans retrieved successfully',
+      loans: loans,
+      count: loans.length
+    };
+    
+  } catch (error) {
+    Logger.log('Error in getAllLoans: ' + error.message);
+    Logger.log('Stack trace: ' + error.stack);
+    
+    return {
+      status: 'error',
+      message: 'Error retrieving loans: ' + error.message,
+      loans: [],
+      count: 0
+    };
+  }
+}
+/**
+ * Get all loans from Closed_Loans sheet
+ * @returns {Object} Response with status and loans array
+ */
+function getAllClosedLoans() {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var closedSheet = ss.getSheetByName('Closed_Loans');
+    
+    if (!closedSheet) {
+      return {
+        status: 'error',
+        message: 'Closed_Loans sheet not found. Please archive some loans first.',
+        loans: []
+      };
+    }
+    
+    var loans = getAllRowsAsObjects(closedSheet);
+    
+    if (!loans || loans.length === 0) {
+      return {
+        status: 'success',
+        message: 'No closed loans found in the archive.',
+        loans: []
+      };
+    }
+    
+    Logger.log('Found ' + loans.length + ' closed loans');
+    
+    return {
+      status: 'success',
+      message: 'Closed loans retrieved successfully',
+      loans: loans
+    };
+    
+  } catch (error) {
+    Logger.log('Error in getAllClosedLoans: ' + error.message);
+    return {
+      status: 'error',
+      message: 'Error retrieving closed loans: ' + error.message,
+      loans: []
+    };
+  }
+}
+function getRefinanceCount(originalLoanNo) {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    var closedSheet = ss.getSheetByName('Closed_Loans');
+    
+    var count = 0;
+    var refinancePattern = new RegExp('^' + originalLoanNo + '-R\\d+$', 'i');
+    
+    var activeLedger = getAllRowsAsObjects(ledgerSheet);
+    for (var i = 0; i < activeLedger.length; i++) {
+      var loanNo = String(activeLedger[i]['Loan No'] || '').trim();
+      if (refinancePattern.test(loanNo)) {
+        count++;
+      }
+    }
+    
+    if (closedSheet) {
+      var closedLoans = getAllRowsAsObjects(closedSheet);
+      for (var j = 0; j < closedLoans.length; j++) {
+        var closedLoanNo = String(closedLoans[j]['Loan No'] || '').trim();
+        if (refinancePattern.test(closedLoanNo)) {
+          count++;
+        }
+      }
+    }
+    
+    Logger.log('Found ' + count + ' existing refinances for loan: ' + originalLoanNo);
+    
+    return {
+      status: 'success',
+      count: count,
+      message: 'Refinance count retrieved successfully'
+    };
+    
+  } catch (error) {
+    Logger.log('Error in getRefinanceCount: ' + error.message);
+    return { status: 'error', message: error.message, count: 0 };
+  }
+}
+function doPost(e) {
+  try {
+    if (!e || !e.postData) {
+      return jsonResponse({ status: 'error', message: 'No POST body received' });
+    }
+    
+    var payload = JSON.parse(e.postData.contents);
+    
+    if (!payload || payload.secret !== SECRET) {
+      return jsonResponse({ status: 'error', message: 'Invalid or missing secret in POST' });
+    }
+    
+    var action = (payload.action || '').toString();
+    
+    switch (action) {
+      case 'recordCollection': return jsonResponse(recordCollection(payload.record));
+      case 'update': return jsonResponse(updateRecord(payload));
+      case 'updateLoanRecord': return jsonResponse(updateLoanRecord(payload));
+      case 'updateCollection': return jsonResponse(updateCollectionRecord(payload));
+      case 'deleteCollection': return jsonResponse(deleteCollectionRecord(payload));
+      case 'deleteLoan': return jsonResponse(deleteLoanRecord(payload));
+      case 'archiveLoan': return jsonResponse(archiveLoanRecord(payload));
+      default:
+        // Handle regular loan entry (with refinance support)
+        if (payload.data && Array.isArray(payload.data)) {
+          var isRefinance = payload.isRefinance || false;
+          var originalLoanNo = payload.originalLoanNo || null;
+          
+          var result = saveLoanWithSchedule(payload.data);
+          
+          if (result.status === 'success' && isRefinance && originalLoanNo) {
+            Logger.log('=== REFINANCE LOAN CREATED ===');
+            Logger.log('Original Loan: ' + originalLoanNo);
+            Logger.log('New Loan: ' + payload.data[6]);
+            Logger.log('Customer: ' + payload.data[1]);
+            
+            result.isRefinance = true;
+            result.originalLoanNo = originalLoanNo;
+            result.message = 'Refinanced loan created successfully from loan #' + originalLoanNo;
+          }
+          
+          return jsonResponse(result);
+        }
+        return jsonResponse({ status: 'error', message: 'Unknown POST action' });
+    }
+  } catch (err) {
+    return jsonResponse({ status: 'error', message: err.message });
+  }
+}
+
+
+/* ==========================================================================
+   LOAN + SCHEDULE GENERATION
+   ========================================================================== */
+
+function saveLoanWithSchedule(rowData) {
+  try {
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    var existing = getAllRowsAsObjects(ledgerSheet);
+    var maxSNo = 0;
+    existing.forEach(function(r) { var s = Number(r['S No'] || 0); if (s > maxSNo) maxSNo = s; });
+    var newSNo = maxSNo + 1;
+    rowData[0] = newSNo;
+    ledgerSheet.appendRow(rowData);
+
+    var loanData = {
+      sNo: newSNo,
+      customerName: rowData[1] || '',
+      mobile: rowData[2] || '',
+      loanNo: rowData[6] || '',
+      loanDate: rowData[7] || '',
+      loanAmount: Number(rowData[8]) || 0,
+      interestRate: Number(rowData[9]) || 0,
+      installments: Number(rowData[10]) || 0,
+      totalEMI: Number(rowData[14]) || 0,
+      installmentStartDate: rowData[18] || '',
+      lastEMIDate: rowData[19] || '',
+      totalAmountPaid: Number(rowData[20]) || 0
+    };
+
+    var res = generateEMISchedule(loanData);
+    return { status: 'success', sNo: newSNo, message: 'Loan saved', schedule: res };
+  } catch (err) {
+    return { status: 'error', message: err.message };
+  }
+}
+/**
+ * Search for a loan in the Closed_Loans sheet
+ * Supports search by: loanNo, mobile, vehicleReg
+ */
+function searchClosedLoan(searchType, searchValue) {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var closedSheet = ss.getSheetByName('Closed_Loans');
+    
+    if (!closedSheet) {
+      return { 
+        status: 'error', 
+        message: 'Closed_Loans sheet not found. Please archive some loans first.' 
+      };
+    }
+    
+    var rows = getAllRowsAsObjects(closedSheet);
+    
+    if (!rows || rows.length === 0) {
+      return { 
+        status: 'error', 
+        message: 'No closed loans found in the archive.' 
+      };
+    }
+    
+    // Determine which field to search
+    var searchField = {
+      'loanNo': 'Loan No',
+      'customerName': 'Name of the customer',
+      'mobile': 'Mobile No',
+      'vehicleReg': 'Registration Number'
+    }[searchType];
+    
+    if (!searchField) {
+      return { status: 'error', message: 'Invalid search type' };
+    }
+    
+    // Search for matching record
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var cellValue = String(row[searchField] || '').trim().toLowerCase();
+      var searchVal = String(searchValue).trim().toLowerCase();
+      
+      // Support partial matching for mobile and registration
+      if (cellValue.indexOf(searchVal) !== -1 || searchVal.indexOf(cellValue) !== -1) {
+        Logger.log('Found closed loan: ' + row['Loan No']);
+        return { 
+          status: 'success', 
+          loan: row,
+          message: 'Closed loan found successfully'
+        };
+      }
+    }
+    
+    return { 
+      status: 'error', 
+      message: 'No closed loan found with the provided search value' 
+    };
+    
+  } catch (error) {
+    Logger.log('Error in searchClosedLoan: ' + error.message);
+    return { status: 'error', message: error.message };
+  }
+}
+
+/**
+ * Get the count of refinances for a given original loan number
+ * This helps generate sequential refinance loan numbers (R1, R2, R3, etc.)
+ */
+function getRefinanceCount(originalLoanNo) {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    var closedSheet = ss.getSheetByName('Closed_Loans');
+    
+    var count = 0;
+    var refinancePattern = new RegExp('^' + originalLoanNo + '-R\\d+$', 'i');
+    
+    // Check in active Ledger
+    var activeLedger = getAllRowsAsObjects(ledgerSheet);
+    for (var i = 0; i < activeLedger.length; i++) {
+      var loanNo = String(activeLedger[i]['Loan No'] || '').trim();
+      if (refinancePattern.test(loanNo)) {
+        count++;
+      }
+    }
+    
+    // Check in Closed_Loans (in case of multiple refinances)
+    if (closedSheet) {
+      var closedLoans = getAllRowsAsObjects(closedSheet);
+      for (var j = 0; j < closedLoans.length; j++) {
+        var closedLoanNo = String(closedLoans[j]['Loan No'] || '').trim();
+        if (refinancePattern.test(closedLoanNo)) {
+          count++;
+        }
+      }
+    }
+    
+    Logger.log('Found ' + count + ' existing refinances for loan: ' + originalLoanNo);
+    
+    return {
+      status: 'success',
+      count: count,
+      message: 'Refinance count retrieved successfully'
+    };
+    
+  } catch (error) {
+    Logger.log('Error in getRefinanceCount: ' + error.message);
+    return { status: 'error', message: error.message, count: 0 };
+  }
+}
+
+/**
+ * Archive a completed loan by moving it to the Closed sheets
+ * @param {Object} payload - Contains loanNumber
+ * @returns {Object} Status object with success/error message
+ */
+function archiveLoanRecord(payload) {
+  try {
+    var loanNumber = payload.loanNumber;
+    if (!loanNumber) {
+      return { status: 'error', message: 'Loan number is required' };
+    }
+
+    loanNumber = String(loanNumber).trim();
+    
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    
+    // Get active sheets
+    var ledgerSheet = ss.getSheetByName(SHEET_LEDGER);
+    var collectionSheet = ss.getSheetByName(SHEET_COLLECTION);
+    var scheduleSheet = ss.getSheetByName(SHEET_CALC);
+    
+    // Get or create closed sheets
+    var closedLedgerSheet = ss.getSheetByName('Closed_Loans') || ss.insertSheet('Closed_Loans');
+    var closedCollectionSheet = ss.getSheetByName('Closed_emi_collection') || ss.insertSheet('Closed_emi_collection');
+    var closedScheduleSheet = ss.getSheetByName('Closed_emi_schedule') || ss.insertSheet('Closed_emi_schedule');
+    
+    // Ensure closed sheets have headers
+    if (closedLedgerSheet.getLastRow() === 0) {
+      var ledgerHeaders = ledgerSheet.getRange(1, 1, 1, ledgerSheet.getLastColumn()).getValues()[0];
+      closedLedgerSheet.getRange(1, 1, 1, ledgerHeaders.length).setValues([ledgerHeaders]);
+    }
+    
+    if (closedCollectionSheet.getLastRow() === 0) {
+      var collectionHeaders = collectionSheet.getRange(1, 1, 1, collectionSheet.getLastColumn()).getValues()[0];
+      closedCollectionSheet.getRange(1, 1, 1, collectionHeaders.length).setValues([collectionHeaders]);
+    }
+    
+    if (closedScheduleSheet.getLastRow() === 0) {
+      var scheduleHeaders = scheduleSheet.getRange(1, 1, 1, scheduleSheet.getLastColumn()).getValues()[0];
+      closedScheduleSheet.getRange(1, 1, 1, scheduleHeaders.length).setValues([scheduleHeaders]);
+    }
+    
+    // Step 1: Find and copy the loan record from Ledger to Closed_Loans
+    var ledgerRows = getAllRowsAsObjects(ledgerSheet);
+    var loanIndex = ledgerRows.findIndex(function(row) {
+      return String(row['Loan No'] || row['Loan Number'] || '').trim() === loanNumber;
+    });
+    
+    if (loanIndex === -1) {
+      return { status: 'error', message: 'Loan not found in Ledger' };
+    }
+    
+    var loanRow = ledgerRows[loanIndex];
+    var loanRowNumber = loanRow.__rowNum;
+    
+    // Copy loan record to Closed_Loans
+    var loanValues = ledgerSheet.getRange(loanRowNumber, 1, 1, ledgerSheet.getLastColumn()).getValues()[0];
+    closedLedgerSheet.appendRow(loanValues);
+    
+    // Step 2: Copy all EMI schedule entries
+    var scheduleRows = getAllRowsAsObjects(scheduleSheet);
+    var scheduleRecordsCopied = 0;
+    var scheduleRowsToDelete = [];
+    
+    for (var i = scheduleRows.length - 1; i >= 0; i--) {
+      if (String(scheduleRows[i]['Loan Number'] || '').trim() === loanNumber) {
+        var scheduleRowNum = scheduleRows[i].__rowNum;
+        var scheduleValues = scheduleSheet.getRange(scheduleRowNum, 1, 1, scheduleSheet.getLastColumn()).getValues()[0];
+        closedScheduleSheet.appendRow(scheduleValues);
+        scheduleRowsToDelete.push(scheduleRowNum);
+        scheduleRecordsCopied++;
+      }
+    }
+    
+    // Step 3: Copy all collection records
+    var collectionRows = getAllRowsAsObjects(collectionSheet);
+    var collectionRecordsCopied = 0;
+    var collectionRowsToDelete = [];
+    
+    for (var j = collectionRows.length - 1; j >= 0; j--) {
+      if (String(collectionRows[j]['Loan Number'] || '').trim() === loanNumber) {
+        var collectionRowNum = collectionRows[j].__rowNum;
+        var collectionValues = collectionSheet.getRange(collectionRowNum, 1, 1, collectionSheet.getLastColumn()).getValues()[0];
+        closedCollectionSheet.appendRow(collectionValues);
+        collectionRowsToDelete.push(collectionRowNum);
+        collectionRecordsCopied++;
+      }
+    }
+    
+    // Step 4: Delete from active sheets (from bottom to top to avoid row shifts)
+    // Delete schedule rows
+    for (var k = 0; k < scheduleRowsToDelete.length; k++) {
+      scheduleSheet.deleteRow(scheduleRowsToDelete[k]);
+    }
+    
+    // Delete collection rows
+    for (var m = 0; m < collectionRowsToDelete.length; m++) {
+      collectionSheet.deleteRow(collectionRowsToDelete[m]);
+    }
+    
+    // Delete loan row
+    ledgerSheet.deleteRow(loanRowNumber);
+    
+    return {
+      status: 'success',
+      message: 'Loan archived successfully',
+      details: {
+        loanNumber: loanNumber,
+        scheduleRecordsArchived: scheduleRecordsCopied,
+        collectionRecordsArchived: collectionRecordsCopied
+      }
+    };
+    
+  } catch (err) {
+    return {
+      status: 'error',
+      message: 'Error archiving loan: ' + err.message
+    };
+  }
+}
+
+
+function generateEMISchedule(loanData) {
+  try {
+    var calcSheet = getSheetByNameOrThrow(SHEET_CALC);
+    var expectedHeaders = ['Schedule ID','Loan Number','Customer Name','EMI Number','Due Date','EMI Amount','Principal Component','Interest Component','Outstanding Balance','Status','Amount Paid','Payment Date'];
+    if (calcSheet.getLastRow() === 0 || calcSheet.getLastColumn() < expectedHeaders.length) {
+      calcSheet.getRange(1,1,1,expectedHeaders.length).setValues([expectedHeaders]);
+    }
+
+    var loanAmount = Number(loanData.loanAmount || 0) || 0;
+    var totalAmountToPay = Number(loanData.totalAmountPaid || loanData.totalAmountToBePaid || 0) || 0;
+    var installments = Number(loanData.installments || 0) || 0;
+    var emiAmountProvided = Number(loanData.totalEMI || 0) || 0;
+    var interestRate = Number(loanData.interestRate || 0) || 0;
+    
+    var monthlyPrincipal = installments > 0 ? loanAmount / installments : 0;
+    var monthlyInterest = 0;
+
+    if (interestRate > 0) {
+      monthlyInterest = (loanAmount * interestRate / 100) / 12;
+    } else if (emiAmountProvided > 0) {
+      monthlyInterest = emiAmountProvided - monthlyPrincipal;
+      if (monthlyInterest < 0) monthlyInterest = 0;
+    } else {
+      monthlyInterest = 0;
+    }
+
+    var emiAmount = emiAmountProvided > 0 ? Math.round(emiAmountProvided) : Math.round((monthlyPrincipal + monthlyInterest) * 100) / 100;
+    var roundPrincipal = Math.round(monthlyPrincipal);
+    var roundInterest = Math.round(monthlyInterest);
+
+    if (emiAmount && Math.abs(emiAmount - (roundPrincipal + roundInterest)) > 0.5) {
+      roundInterest = Math.round(Math.max(0, emiAmount - roundPrincipal));
+    }
+
+    var startDate = loanData.loanDate ? parseDateSafe(loanData.loanDate) : new Date();
+    var outstanding = totalAmountToPay > 0 ? totalAmountToPay : 0;
+    var rows = [];
+
+    for (var i = 1; i <= (installments || 0); i++) {
+      var due = new Date(startDate); 
+      due.setMonth(due.getMonth() + i);
+      
+      if (i === 1) {
+        outstanding = Math.round(totalAmountToPay);
+      } else {
+        outstanding = Math.max(0, Math.round(outstanding - emiAmount));
+      }
+      
+      var schedId = (loanData.loanNo ? loanData.loanNo : 'LN') + '-EMI-' + String(i).padStart(2,'0');
+
+      rows.push([
+        schedId,
+        loanData.loanNo || '',
+        loanData.customerName || '',
+        i,
+        formatDateForSheet(due),
+        Math.round(emiAmount),
+        Math.round(roundPrincipal),
+        Math.round(roundInterest),
+        outstanding,
+        'Pending',  // Always use Title Case "Pending"
+        0,
+        ''
+      ]);
+    }
+
+    if (rows.length) {
+      var startRow = calcSheet.getLastRow() + 1;
+      calcSheet.getRange(startRow,1,rows.length,rows[0].length).setValues(rows);
+    }
+    return { status: 'success', generated: rows.length };
+  } catch (err) {
+    return { status: 'error', message: err.message };
+  }
+}
+
+function backfillInterestComponents() {
+  try {
+    var sh = getSheetByNameOrThrow(SHEET_CALC);
+    var data = sh.getDataRange().getValues();
+    if (!data || data.length < 2) return { status: 'success', updated: 0, message: 'No rows' };
+    var headers = data[0].map(h => String(h || '').trim());
+    var idxEmi = headers.findIndex(h => h.toLowerCase().replace(/\s+/g,'').indexOf('emiamount') !== -1);
+    var idxPrincipal = headers.findIndex(h => h.toLowerCase().replace(/\s+/g,'').indexOf('principal') !== -1);
+    var idxInterest = headers.findIndex(h => h.toLowerCase().replace(/\s+/g,'').indexOf('interest') !== -1);
+
+    if (idxEmi === -1 || idxPrincipal === -1 || idxInterest === -1) {
+      return { status: 'error', message: 'Required headers not found in emi_schedule' };
+    }
+
+    var updates = 0;
+    for (var r = 1; r < data.length; r++) {
+      var row = data[r];
+      var emiAmt = Number(row[idxEmi]) || 0;
+      var principalComp = Number(row[idxPrincipal]) || 0;
+      var interestComp = Number(row[idxInterest]) || 0;
+      if ((interestComp === 0 || isNaN(interestComp)) && emiAmt > 0) {
+        var calcInterest = Math.round(Math.max(0, emiAmt - principalComp));
+        sh.getRange(r+1, idxInterest+1).setValue(calcInterest);
+        updates++;
+      }
+    }
+    return { status: 'success', updated: updates };
+  } catch (err) {
+    return { status: 'error', message: err.message };
+  }
+}
+
+/* ==========================================================================
+   COLLECTIONS: record / update / delete
+   ========================================================================== */
+
+function recordCollection(record) {
+  if (!record || typeof record !== 'object') return { status: 'error', message: 'Invalid record' };
+
+  var collSheet = getSheetByNameOrThrow(SHEET_COLLECTION);
+  if (collSheet.getLastRow() === 0) {
+    collSheet.getRange(1,1,1,8).setValues([['Collection ID','Loan Number','Customer Name','Collection Date','EMI Amount','Amount Paid','EMI Month','Status']]);
+  }
+
+  var headers = ['Collection ID','Loan Number','Customer Name','Collection Date','EMI Amount','Amount Paid','EMI Month','Status'];
+  var row = headers.map(function(h) { 
+    return record && record.hasOwnProperty(h) ? (record[h] || '') : ''; 
+  });
+
+  try {
+    collSheet.appendRow(row);
+  } catch (err) {
+    Logger.log('Error appending collection: ' + err.message);
+    throw new Error('Failed to record collection: ' + err.message);
+  }
+
+  var loanNo = String(record['Loan Number'] || '').trim();
+  var emiNum = String(record['EMI Month'] || '').trim();
+  var amountPaid = Number(record['Amount Paid'] || record['Amoiunt Paid'] || 0) || 0;
+
+  if (loanNo && emiNum && amountPaid > 0) {
+    var calcSheet = getSheetByNameOrThrow(SHEET_CALC);
+    var rows = getAllRowsAsObjects(calcSheet);
+    var match = rows.find(function(r) {
+      return String(r['Loan Number'] || '').trim() === loanNo && String(r['EMI Number'] || r['EMI No'] || r['EMI'] || '').trim() === emiNum;
+    });
+    if (match) {
+      var headerMap = getHeaderIndexMap(calcSheet);
+      var rowIndex = match.__rowNum;
+      var existingPaid = Number(match['Amount Paid'] || match['Amoiunt Paid'] || 0) || 0;
+      var newPaid = existingPaid + amountPaid;
+      var emiAmount = Number(match['EMI Amount'] || 0) || 0;
+      
+      // Use calculateStatus helper
+      var newStatus = calculateStatus(newPaid, emiAmount);
+      
+      if (headerMap['Amount Paid']) calcSheet.getRange(rowIndex, headerMap['Amount Paid']).setValue(newPaid);
+      if (headerMap['Payment Date']) calcSheet.getRange(rowIndex, headerMap['Payment Date']).setValue(record['Collection Date'] || formatDateForSheet(new Date()));
+      if (headerMap['Status']) calcSheet.getRange(rowIndex, headerMap['Status']).setValue(newStatus);
+      if (headerMap['Outstanding Balance']) {
+        var outstanding = isFinite(Number(match['Outstanding Balance'])) ? Number(match['Outstanding Balance']) - amountPaid : (emiAmount ? emiAmount - newPaid : '');
+        if (isFinite(outstanding) && outstanding < 0) outstanding = 0;
+        calcSheet.getRange(rowIndex, headerMap['Outstanding Balance']).setValue(isFinite(outstanding) ? outstanding : '');
+      }
+    }
+  }
+
+  return { status: 'success', message: 'Collection recorded' };
+}
+
+function updateCollectionRecord(payload) {
+  try {
+    var collectionId = payload.collectionId;
+    var updates = payload.updates;
+    if (!collectionId || !updates) return { status: 'error', message: 'collectionId and updates required' };
+
+    var collSheet = getSheetByNameOrThrow(SHEET_COLLECTION);
+    var rows = getAllRowsAsObjects(collSheet);
+    var idx = rows.findIndex(r => String(r['Collection ID'] || '').trim() === String(collectionId).trim());
+    if (idx === -1) return { status: 'error', message: 'Collection not found' };
+    var old = rows[idx];
+
+    var headers = collSheet.getRange(1,1,1,collSheet.getLastColumn()).getValues()[0];
+    var newRow = headers.map(h => updates.hasOwnProperty(h) ? updates[h] : (old[h] || ''));
+    collSheet.getRange(idx+2, 1, 1, newRow.length).setValues([newRow]);
+
+    var oldPaid = Number(old['Amount Paid'] || old['Amoiunt Paid'] || 0) || 0;
+    var newPaid = Number(updates['Amount Paid'] || old['Amount Paid'] || old['Amoiunt Paid'] || 0) || 0;
+    var diff = newPaid - oldPaid;
+    var loanNo = updates['Loan Number'] || old['Loan Number'];
+    var emiMonth = updates['EMI Month'] || old['EMI Month'];
+    var status = updates['Status'] || old['Status'];
+
+    if (loanNo && emiMonth) updateEMIScheduleFromCollectionUpdate(loanNo, emiMonth, status, newPaid, diff);
+
+    return { status: 'success', message: 'Collection updated' };
+  } catch (err) {
+    return { status: 'error', message: err.message };
+  }
+}
+
+function deleteCollectionRecord(payload) {
+  try {
+    var collectionId = payload.collectionId;
+    if (!collectionId) return { status: 'error', message: 'collectionId required' };
+
+    var collSheet = getSheetByNameOrThrow(SHEET_COLLECTION);
+    var rows = getAllRowsAsObjects(collSheet);
+    var idx = rows.findIndex(r => String(r['Collection ID'] || '').trim() === String(collectionId).trim());
+    if (idx === -1) return { status: 'error', message: 'collection not found' };
+
+    var rec = rows[idx];
+    var amountPaid = Number(rec['Amount Paid'] || rec['Amoiunt Paid'] || 0) || 0;
+    var loanNo = rec['Loan Number'];
+    var emiMonth = rec['EMI Month'];
+
+    collSheet.deleteRow(idx+2);
+
+    if (loanNo && emiMonth) reverseEMISchedulePayment(loanNo, emiMonth, amountPaid);
+
+    return { status: 'success', message: 'Collection deleted' };
+  } catch (err) {
+    return { status: 'error', message: err.message };
+  }
+}
+
+/* ==========================================================================
+   DELETE LOAN FUNCTION - Add this function to your Fresh Appscript.txt
+   ========================================================================== */
+
+/**
+ * Delete a loan record and all associated EMI schedule and collection records
+ * @param {Object} payload - Contains loanNo
+ * @returns {Object} Status object with success/error message
+ */
+function deleteLoanRecord(payload) {
+  try {
+    var loanNo = payload.loanNo;
+    if (!loanNo) {
+      return { status: 'error', message: 'Loan number is required' };
+    }
+
+    // Trim and normalize loan number for comparison
+    loanNo = String(loanNo).trim();
+
+    // Step 1: Find and delete the loan from Ledger sheet
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    var ledgerRows = getAllRowsAsObjects(ledgerSheet);
+    
+    var loanIndex = ledgerRows.findIndex(function(row) {
+      return String(row['Loan No'] || row['Loan Number'] || '').trim() === loanNo;
+    });
+    
+    if (loanIndex === -1) {
+      return { status: 'error', message: 'Loan not found in Ledger' };
+    }
+
+    var loanRowNumber = ledgerRows[loanIndex].__rowNum;
+    
+    // Step 2: Delete all EMI schedule entries for this loan
+    var scheduleSheet = getSheetByNameOrThrow(SHEET_CALC);
+    var scheduleRows = getAllRowsAsObjects(scheduleSheet);
+    
+    var scheduleDeleteCount = 0;
+    // Delete from bottom to top to avoid row number shifts
+    for (var i = scheduleRows.length - 1; i >= 0; i--) {
+      if (String(scheduleRows[i]['Loan Number'] || '').trim() === loanNo) {
+        scheduleSheet.deleteRow(scheduleRows[i].__rowNum);
+        scheduleDeleteCount++;
+      }
+    }
+
+    // Step 3: Delete all collection records for this loan
+    var collectionSheet = getSheetByNameOrThrow(SHEET_COLLECTION);
+    var collectionRows = getAllRowsAsObjects(collectionSheet);
+    
+    var collectionDeleteCount = 0;
+    // Delete from bottom to top to avoid row number shifts
+    for (var j = collectionRows.length - 1; j >= 0; j--) {
+      if (String(collectionRows[j]['Loan Number'] || '').trim() === loanNo) {
+        collectionSheet.deleteRow(collectionRows[j].__rowNum);
+        collectionDeleteCount++;
+      }
+    }
+
+    // Step 4: Finally delete the loan record from Ledger
+    ledgerSheet.deleteRow(loanRowNumber);
+
+    return { 
+      status: 'success', 
+      message: 'Loan deleted successfully',
+      details: {
+        loanNumber: loanNo,
+        scheduleRecordsDeleted: scheduleDeleteCount,
+        collectionRecordsDeleted: collectionDeleteCount
+      }
+    };
+
+  } catch (err) {
+    return { 
+      status: 'error', 
+      message: 'Error deleting loan: ' + err.message 
+    };
+  }
+}
+
+
+
+/*
+function doPost(e) {
+  try {
+    if (!e.postData || !e.postData.contents) {
+      return jsonResponse({ status: 'error', message: 'No POST body received' });
+    }
+    var payload = JSON.parse(e.postData.contents);
+    if (!payload || payload.secret !== SECRET) {
+      return jsonResponse({ status: 'error', message: 'Invalid or missing secret in POST' });
+    }
+    var action = (payload.action || '').toString();
+
+    switch (action) {
+      case 'recordCollection': 
+        return jsonResponse( recordCollection(payload.record) );
+      
+      case 'update': 
+        return jsonResponse( updateRecord(payload) );
+      
+      case 'updateLoanRecord': 
+        return jsonResponse( updateLoanRecord(payload) );
+      
+      case 'updateCollection': 
+        return jsonResponse( updateCollectionRecord(payload) );
+      
+      case 'deleteCollection': 
+        return jsonResponse( deleteCollectionRecord(payload) );
+      
+      case 'deleteLoan':                          // <--- ADD THIS CASE
+        return jsonResponse( deleteLoanRecord(payload) );
+      
+      default:
+        if (payload.data && Array.isArray(payload.data)) {
+          var isRefinance = payload.isRefinance || false;
+          var originalLoanNo = payload.originalLoanNo || null;
+          
+          var result = saveLoanWithSchedule(payload.data);
+          
+          if (result.status === 'success' && isRefinance && originalLoanNo) {
+            Logger.log('=== REFINANCE LOAN CREATED ===');
+            Logger.log('Original Loan: ' + originalLoanNo);
+            Logger.log('New Loan: ' + payload.data[6]);
+            Logger.log('Customer: ' + payload.data[1]);
+            
+            result.isRefinance = true;
+            result.originalLoanNo = originalLoanNo;
+            result.message = 'Refinanced loan created successfully from loan #' + originalLoanNo;
+          }
+          
+          return jsonResponse(result);
+        }
+        return jsonResponse({ status: 'error', message: 'Unknown POST action' });
+    }
+  } catch (err) {
+    return jsonResponse({ status: 'error', message: err.message });
+  }
+}
+*/
+
+function updateEMIScheduleFromCollectionUpdate(loanNo, emiNumber, status, newAmountPaid, amountDifference) {
+  try {
+    var sheet = getSheetByNameOrThrow(SHEET_CALC);
+    var rows = getAllRowsAsObjects(sheet);
+    var match = rows.find(function(r) {
+      return String(r['Loan Number'] || '').trim() === String(loanNo).trim() && String(r['EMI Number'] || r['EMI No'] || r['EMI'] || '').trim() === String(emiNumber).trim();
+    });
+    if (!match) return;
+    var headerMap = getHeaderIndexMap(sheet);
+    var rowIndex = match.__rowNum;
+    
+    // Standardize status before writing
+    if (headerMap['Status'] && status !== undefined) {
+      sheet.getRange(rowIndex, headerMap['Status']).setValue(getStandardStatus(status));
+    }
+    
+    if (headerMap['Amount Paid']) sheet.getRange(rowIndex, headerMap['Amount Paid']).setValue(newAmountPaid || 0);
+    if (headerMap['Outstanding Balance']) {
+      var curBal = parseFloat(match['Outstanding Balance'] || 0) || 0;
+      var newBal = Math.max(0, curBal - (amountDifference || 0));
+      sheet.getRange(rowIndex, headerMap['Outstanding Balance']).setValue(newBal);
+    }
+    if (headerMap['Payment Date']) {
+      if (newAmountPaid > 0) sheet.getRange(rowIndex, headerMap['Payment Date']).setValue(formatDateForSheet(new Date()));
+      else sheet.getRange(rowIndex, headerMap['Payment Date']).setValue('');
+    }
+  } catch (err) {
+    Logger.log('updateEMIScheduleFromCollectionUpdate error: ' + err.message);
+  }
+}
+
+function reverseEMISchedulePayment(loanNo, emiNumber, amountToReverse) {
+  try {
+    var sheet = getSheetByNameOrThrow(SHEET_CALC);
+    var rows = getAllRowsAsObjects(sheet);
+    var match = rows.find(function(r) {
+      return String(r['Loan Number'] || '').trim() === String(loanNo).trim() && String(r['EMI Number'] || r['EMI No'] || r['EMI'] || '').trim() === String(emiNumber).trim();
+    });
+    if (!match) return;
+    var headerMap = getHeaderIndexMap(sheet);
+    var rowIndex = match.__rowNum;
+    var curPaid = parseFloat(match['Amount Paid'] || 0) || 0;
+    var newPaid = Math.max(0, curPaid - (amountToReverse || 0));
+    var emiAmt = parseFloat(match['EMI Amount'] || 0) || 0;
+    
+    // Use calculateStatus helper
+    var newStatus = calculateStatus(newPaid, emiAmt);
+    
+    var curOutstanding = parseFloat(match['Outstanding Balance'] || 0) || 0;
+    var newOutstanding = curOutstanding + (amountToReverse || 0);
+    if (headerMap['Amount Paid']) sheet.getRange(rowIndex, headerMap['Amount Paid']).setValue(newPaid);
+    if (headerMap['Status']) sheet.getRange(rowIndex, headerMap['Status']).setValue(newStatus);
+    if (headerMap['Outstanding Balance']) sheet.getRange(rowIndex, headerMap['Outstanding Balance']).setValue(newOutstanding);
+    if (headerMap['Payment Date'] && newPaid === 0) sheet.getRange(rowIndex, headerMap['Payment Date']).setValue('');
+  } catch (err) {
+    Logger.log('reverseEMISchedulePayment error: ' + err.message);
+  }
+}
+
+/* ==========================================================================
+   REPORTS / QUERIES
+   ========================================================================== */
+
+function getReport(params) {
+  try {
+    var mode = (params.mode || params.reportMode || 'daily').toString();
+    var reportType = (params.reportType || 'collections').toString();
+    var date = params.date || params.reportDate || '';
+    var from = params.from || params.fromDate || '';
+    var to = params.to || params.toDate || '';
+
+    if (reportType === 'newloans') {
+      if (!from || !to) return { status:'error', message:'from and to required for newloans' };
+      return getNewLoans({ from: from, to: to });
+    }
+
+    var collRows = getAllRowsAsObjects(getSheetByNameOrThrow(SHEET_COLLECTION));
+    
+    function betweenDate(recDate, start, end) {
+      var d = parseDateSafe(recDate);
+      if (!d) return false;
+      return d >= startOfDay(start) && d <= startOfDay(end);
+    }
+
+    var target = [];
+    if (mode === 'daily') {
+      if (!date) return { status:'error', message:'date required for daily' };
+      var d = parseDateSafe(date);
+      if (!d) return { status:'error', message:'invalid date' };
+      target = collRows.filter(r => betweenDate(r['Collection Date'] || r['CollectionDate'] || r['Date'], d, d));
+    } else {
+      if (!from || !to) return { status:'error', message:'from and to required for range' };
+      var d1 = parseDateSafe(from), d2 = parseDateSafe(to);
+      if (!d1 || !d2) return { status:'error', message:'invalid from/to' };
+      target = collRows.filter(r => betweenDate(r['Collection Date']||r['CollectionDate']||r['Date'], d1, d2));
+    }
+
+    var calcRows = getAllRowsAsObjects(getSheetByNameOrThrow(SHEET_CALC));
+    var scheduleMap = {};
+    calcRows.forEach(function(r) {
+      var loan = String(r['Loan Number'] || '').trim();
+      var emi = String(r['EMI Number'] || r['EMI No'] || r['EMI'] || '').trim();
+      if (!loan) return;
+      var emiAmt = Number(r['EMI Amount'] || r['EMIAmount'] || 0) || 0;
+      var principal = Number(r['Principal Component'] || r['Principal'] || 0) || 0;
+      var interest = Number(r['Interest Component'] || r['Interest'] || 0) || 0;
+      if ((interest === 0 || isNaN(interest)) && emiAmt && principal) {
+        var calcInterest = emiAmt - principal;
+        interest = calcInterest > 0 ? calcInterest : 0;
+      }
+      if (!scheduleMap[loan]) scheduleMap[loan] = {};
+      scheduleMap[loan][emi] = { principal: principal || 0, interest: interest || 0, emiAmount: emiAmt || principal + interest || 0 };
+    });
+
+    function allocate(paid, sched) {
+      paid = Number(paid) || 0;
+      if (!sched) return { principalCollected: paid, interestCollected: 0 };
+      var p = Number(sched.principal) || 0;
+      var i = Number(sched.interest) || 0;
+      var tot = p + i;
+      if (tot > 0) {
+        var pCollected = Math.round((paid * (p / tot)) * 100) / 100;
+        var iCollected = Math.round((paid - pCollected) * 100) / 100;
+        return { principalCollected: pCollected, interestCollected: iCollected };
+      } else {
+        return { principalCollected: Math.round(paid * 100) / 100, interestCollected: 0 };
+      }
+    }
+
+    var rowsOut = [];
+    var totals = { collectionCount: 0, totalEMIAmount: 0, totalPrincipal: 0, totalInterest: 0, uniqueCustomers: 0 };
+    var custSet = {};
+
+    target.forEach(function(rec) {
+      var loanNo = String(rec['Loan Number'] || rec['LoanNo'] || '').trim();
+      var emiMonth = String(rec['EMI Month'] || rec['EMIMonth'] || rec['EMI Number'] || rec['EMI'] || '').trim();
+      var paid = Number(rec['Amount Paid'] || rec['Amount'] || rec['Amoiunt Paid'] || 0) || 0;
+      var emiAmtRec = Number(rec['EMI Amount'] || 0) || 0;
+      var sched = (scheduleMap[loanNo] && scheduleMap[loanNo][emiMonth]) ? scheduleMap[loanNo][emiMonth] : null;
+      if (!sched) sched = { principal: emiAmtRec || 0, interest: 0, emiAmount: emiAmtRec || 0 };
+      var alloc = allocate(paid, sched);
+
+      rowsOut.push({
+        'Collection ID': rec['Collection ID'] || rec['CollectionID'] || '',
+        'Loan Number': loanNo, 
+        'Customer Name': rec['Customer Name'] || rec['Customer'] || '',
+        'EMI Month': emiMonth, 
+        'Amount Paid': paid, 
+        'EMI Amount': sched.emiAmount || emiAmtRec || paid,
+        'Principal Collected': alloc.principalCollected, 
+        'Interest Collected': alloc.interestCollected, 
+        'Status': getStandardStatus(rec['Status'] || '')  // Standardize status in output
+      });
+
+      totals.collectionCount += 1;
+      totals.totalEMIAmount += (sched.emiAmount || emiAmtRec || paid);
+      totals.totalPrincipal += alloc.principalCollected;
+      totals.totalInterest += alloc.interestCollected;
+      var cname = (rec['Customer Name'] || rec['Customer'] || '').toString().trim() || loanNo;
+      if (cname) custSet[cname] = true;
+    });
+
+    totals.uniqueCustomers = Object.keys(custSet).length;
+    totals.totalEMIAmount = Math.round(totals.totalEMIAmount * 100) / 100;
+    totals.totalPrincipal = Math.round(totals.totalPrincipal * 100) / 100;
+    totals.totalInterest = Math.round(totals.totalInterest * 100) / 100;
+
+    return { status: 'success', mode: mode, reportType: reportType, totals: totals, rows: rowsOut };
+  } catch (err) {
+    return { status: 'error', message: err.message };
+  }
+}
+
+/* ==========================================================================
+   LEDGER / SEARCH / HELPERS
+   ========================================================================== */
+
+function getNewLoans(params) {
+  try {
+    var from = params.from || params.start || '';
+    var to = params.to || params.end || '';
+    if (!from || !to) return { status: 'error', message: 'from and to required' };
+
+    var rows = getAllRowsAsObjects(getSheetByNameOrThrow(SHEET_LEDGER));
+    var start = parseDateSafe(from), end = parseDateSafe(to);
+    if (!start || !end) return { status: 'error', message: 'invalid from/to' };
+
+    var dateKeys = ['Date of disbursement','Date of disbursal','Disbursement Date','Date of loan','Loan Date','Date of Installment Starting','Date'];
+
+    var out = rows.filter(function(r) {
+      var found = null;
+      Object.keys(r || {}).some(function(k) {
+        var kl = (k || '').toLowerCase();
+        if (dateKeys.some(function(c) { return kl.indexOf(c.toLowerCase().replace(/\s+/g,'')) !== -1 || kl.indexOf(c.toLowerCase()) !== -1; })) {
+          if (r[k]) { found = r[k]; return true; }
+        }
+        return false;
+      });
+      if (!found) {
+        if (r['Date of loan']) found = r['Date of loan'];
+        else if (r['Date']) found = r['Date'];
+      }
+      var d = parseDateSafe(found);
+      if (!d) return false;
+      return d >= startOfDay(start) && d <= startOfDay(end);
+    });
+
+    return { status: 'success', rows: out, totals: { count: out.length } };
+  } catch (err) {
+    return { status: 'error', message: err.message };
+  }
+}
+
+function lookupCustomerByLoan(loanNo) {
+  if (!loanNo) return { status: 'error', message: 'loanNo missing' };
+  var rows = getAllRowsAsObjects(getSheetByNameOrThrow(SHEET_LEDGER));
+  var m = rows.find(r => String(r['Loan No'] || r['Loan Number'] || '').trim() === String(loanNo).trim());
+  if (!m) return { status: 'error', message: 'Not found' };
+  return { status: 'success', data: m };
+}
+
+function getEMISchedule(loanNo) {
+  if (!loanNo) return { status: 'error', message: 'loanNo missing' };
+  var rows = getAllRowsAsObjects(getSheetByNameOrThrow(SHEET_CALC));
+  var schedule = rows.filter(r => String(r['Loan Number'] || '').trim() === String(loanNo).trim());
+  return { status: 'success', schedule: schedule };
+}
+
+function getAllEMISchedule() {
+  var rows = getAllRowsAsObjects(getSheetByNameOrThrow(SHEET_CALC));
+  return { status: 'success', schedule: rows };
+}
+
+function getLoanNumbers(e) {
+  const secret = e.parameter.secret;
+  if (secret !== SECRET) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Invalid secret' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var ledgerSheet = ss.getSheetByName(SHEET_LEDGER);
+    
+    if (!ledgerSheet) {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Ledger sheet not found' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    var data = ledgerSheet.getDataRange().getValues();
+    var loanNumbers = [];
+    
+    for (var i = 1; i < data.length; i++) {
+      var loanNo = data[i][6];  // Column G (index 6) - Loan No
+      if (loanNo) {
+        loanNumbers.push(String(loanNo).trim());
+      }
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      loanNumbers: loanNumbers
+    }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    Logger.log('Error in getLoanNumbers: ' + error.toString());
+    return ContentService.createTextOutput(JSON.stringify({ 
+      status: 'error', 
+      message: error.toString() 
+    }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function searchCustomers(params) {
+  var loanNo = (params.loanNo || '').toString().trim();
+  var name = (params.name || '').toString().trim().toLowerCase();
+  var mobile = (params.mobile || '').toString().trim();
+  var rows = getAllRowsAsObjects(getSheetByNameOrThrow(SHEET_LEDGER));
+  var filtered = rows.filter(function(r) {
+    var ok = true;
+    if (loanNo) ok = ok && (String(r['Loan No'] || r['Loan Number'] || '').trim() === loanNo);
+    if (name) ok = ok && (String(r['Name of the customer'] || '').toLowerCase().indexOf(name) !== -1);
+    if (mobile) ok = ok && (String(r['Mobile No'] || '').indexOf(mobile) !== -1);
+    return ok;
+  });
+  return { status: 'success', data: filtered };
+}
+
+function getOverdue(params) {
+  var rows = getAllRowsAsObjects(getSheetByNameOrThrow(SHEET_CALC));
+  var today = new Date();
+  var out = rows.filter(function(r) {
+    var due = parseDateSafe(r['Due Date']);
+    if (!due) return false;
+    return isNotPaid(r['Status']) && due < startOfDay(today);
+  }).map(function(r) {
+    var due = parseDateSafe(r['Due Date']);
+    var overdueDays = due ? Math.floor((startOfDay(new Date()) - startOfDay(due)) / (1000*60*60*24)) : 0;
+    return {
+      'Loan Number': r['Loan Number'],
+      'Customer Name': r['Customer Name'],
+      'EMI Number': r['EMI Number'],
+      'Due Date': r['Due Date'],
+      'Outstanding Balance': r['Outstanding Balance'],
+      'overdueDays': overdueDays
+    };
+  });
+  return { status: 'success', records: out };
+}
+
+function getDashboardStats() {
+  var collRows = getAllRowsAsObjects(getSheetByNameOrThrow(SHEET_COLLECTION));
+  var todayStr = formatDateISO(new Date());
+  var totalCollectionsToday = collRows.reduce(function(sum, r) {
+    var d = parseDateSafe(r['Collection Date']);
+    var cd = d ? formatDateISO(d) : '';
+    if (cd === todayStr) return sum + Number(r['Amount Paid'] || r['Amoiunt Paid'] || 0);
+    return sum;
+  }, 0);
+
+  var calcRows = getAllRowsAsObjects(getSheetByNameOrThrow(SHEET_CALC));
+  var pending = calcRows.filter(function(r) { return isNotPaid(r['Status']); }).length;
+  var overdue = calcRows.filter(function(r){
+    var dd = parseDateSafe(r['Due Date']);
+    return dd && dd < startOfDay(new Date()) && isNotPaid(r['Status']);
+  }).length;
+
+  var totalEmis = Math.max(calcRows.length, 1);
+  var paidEmis = calcRows.filter(function(r) { return isPaidStatus(r['Status']); }).length;
+  var rate = Math.round((paidEmis / totalEmis) * 100);
+
+  return { status: 'success', stats: { totalCollectionsToday: totalCollectionsToday, pendingEMIs: pending, overdueLoans: overdue, collectionRate: rate } };
+}
+
+function exportEMIRecords(params) {
+  var loanNo = (params.loanNo || '').toString().trim();
+  var rows = getAllRowsAsObjects(getSheetByNameOrThrow(SHEET_COLLECTION));
+  if (loanNo) rows = rows.filter(r => String(r['Loan Number'] || '').trim() === loanNo);
+  if (!rows.length) return 'No records';
+  var headers = Object.keys(rows[0]).filter(k => k !== '__rowNum');
+  var csv = [headers.join(',')];
+  rows.forEach(function(r) {
+    csv.push(headers.map(function(h) { var v = r[h] === undefined || r[h] === null ? '' : String(r[h]).replace(/"/g,'""'); return '"' + v + '"'; }).join(','));
+  });
+  return csv.join('\n');
+}
+
+/* ==========================================================================
+   UTILITIES
+   ========================================================================== */
+
+function jsonResponse(obj) { return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON); }
+function csvResponse(txt) { return ContentService.createTextOutput(txt).setMimeType(ContentService.MimeType.CSV); }
+
+function getSheetByNameOrThrow(name) {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sh = ss.getSheetByName(name);
+  if (!sh) throw new Error('Sheet not found: ' + name);
+  return sh;
+}
+
+function getAllRowsAsObjects(sheet) {
+  if (!sheet) {
+    Logger.log('ERROR: getAllRowsAsObjects called without sheet parameter');
+    throw new Error('Sheet parameter is required for getAllRowsAsObjects');
+  }
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  
+  var lastCol = sheet.getLastColumn();
+  
+  Logger.log('Reading ' + lastRow + ' rows and ' + lastCol + ' columns');
+  
+  var data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  var headers = data[0];
+  var rows = [];
+  
+  var headerCounts = {};
+  var uniqueHeaders = [];
+  
+  for (var c = 0; c < lastCol; c++) {
+    var originalHeader = String(headers[c] || '').trim();
+    if (originalHeader === '') {
+      originalHeader = 'Column_' + (c + 1);
+    }
+    
+    if (headerCounts[originalHeader]) {
+      headerCounts[originalHeader]++;
+      uniqueHeaders[c] = originalHeader + '_' + headerCounts[originalHeader];
+    } else {
+      headerCounts[originalHeader] = 1;
+      uniqueHeaders[c] = originalHeader;
+    }
+  }
+  
+  for (var r = 1; r < data.length; r++) {
+    var obj = {};
+    
+    for (var c = 0; c < lastCol; c++) {
+      var header = uniqueHeaders[c];
+      var value = data[r][c] || '';
+      obj[header] = value;
+    }
+    
+    obj.__rowNum = r + 1;
+    rows.push(obj);
+  }
+  
+  Logger.log('Processed ' + rows.length + ' rows with ' + lastCol + ' columns');
+  
+  return rows;
+}
+
+function parseDateSafe(v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    if (isNaN(v.getTime())) return null;
+    return startOfDay(v);
+  }
+  try {
+    var s = String(v).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return startOfDay(new Date(s + 'T00:00:00'));
+    if (/^\d{2}-\d{2}-\d{4}$/.test(s)) { var p = s.split('-'); return startOfDay(new Date(p[2], Number(p[1])-1, Number(p[0]))); }
+    if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(s)) { var p2 = s.split('/'); if (p2[2].length === 4) return startOfDay(new Date(p2[2], Number(p2[1])-1, Number(p2[0]))); }
+    var d = new Date(s);
+    if (!isNaN(d)) return startOfDay(d);
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function formatDateISO(d) { if (!d) return ''; var D = d instanceof Date ? d : new Date(d); if (isNaN(D)) return ''; return D.getFullYear() + '-' + pad(D.getMonth()+1) + '-' + pad(D.getDate()); }
+function formatDateForSheet(d) { if (!d) return ''; var D = d instanceof Date ? d : new Date(d); if (isNaN(D)) return ''; return D.getFullYear() + '-' + pad(D.getMonth()+1) + '-' + pad(D.getDate()); }
+function pad(n){ return n < 10 ? '0' + n : n; }
+
+function generateSchedulesForExistingLoans() {
+  var ledgerRows = getAllRowsAsObjects(getSheetByNameOrThrow(SHEET_LEDGER));
+  var scheduleRows = getAllRowsAsObjects(getSheetByNameOrThrow(SHEET_CALC));
+  var processed = 0, skipped = 0;
+  ledgerRows.forEach(function(loan) {
+    var loanNo = loan['Loan No'] || loan['Loan Number'];
+    if (!loanNo) { skipped++; return; }
+    var exists = scheduleRows.some(function(s) { return String(s['Loan Number']).trim() === String(loanNo).trim(); });
+    if (!exists) {
+      var loanData = {
+        sNo: loan['S No'],
+        customerName: loan['Name of the customer'],
+        loanNo: loanNo,
+        loanAmount: Number(loan['Loan Amount']) || 0,
+        interestRate: Number(loan['Rate of Interest']) || 0,
+        installments: Number(loan['No of monthly instalments']) || 0,
+        totalEMI: Number(loan['Total EMI']) || 0,
+        installmentStartDate: loan['Date of Installment Starting'],
+        lastEMIDate: loan['Last Emi date']
+      };
+      if (loanData.loanAmount > 0 && loanData.installments > 0) { generateEMISchedule(loanData); processed++; } else skipped++;
+    } else skipped++;
+  });
+  return { status: 'success', message: 'Processed ' + processed + ' schedules, skipped ' + skipped };
+}
+
+function fixAllExistingSchedules() {
+  try {
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    var calcSheet = getSheetByNameOrThrow(SHEET_CALC);
+    
+    var ledgerRows = getAllRowsAsObjects(ledgerSheet);
+    Logger.log('Total ledger rows: ' + ledgerRows.length);
+    
+    var uniqueLoans = {};
+    
+    ledgerRows.forEach(function(loan) {
+      var loanNo = String(loan['Loan No'] || loan['Loan Number'] || '').trim();
+      if (!loanNo || uniqueLoans[loanNo]) return;
+      
+      uniqueLoans[loanNo] = {
+        sNo: loan['S No'],
+        customerName: loan['Name of the customer'],
+        mobile: loan['Mobile No'],
+        loanNo: loanNo,
+        loanDate: loan['Date of loan'],
+        loanAmount: Number(loan['Loan Amount']) || 0,
+        interestRate: Number(loan['Rate of Interest']) || 0,
+        installments: Number(loan['No of monthly instalments']) || 0,
+        totalEMI: Number(loan['Total EMI']) || 0,
+        installmentStartDate: loan['Date of Installment Starting'],
+        lastEMIDate: loan['Last Emi date'],
+        totalAmountPaid: Number(loan['Total amt to be paid']) || 0
+      };
+    });
+    
+    Logger.log('Unique loans: ' + Object.keys(uniqueLoans).length);
+    
+    if (calcSheet.getLastRow() > 1) {
+      calcSheet.getRange(2, 1, calcSheet.getLastRow() - 1, calcSheet.getLastColumn()).clearContent();
+    }
+    
+    var processed = 0;
+    var errors = 0;
+    
+    Object.keys(uniqueLoans).forEach(function(loanNo) {
+      var loanData = uniqueLoans[loanNo];
+      
+      if (loanData.loanAmount > 0 && loanData.installments > 0) {
+        try {
+          generateEMISchedule(loanData);
+          processed++;
+        } catch (err) {
+          Logger.log('ERROR: Loan ' + loanNo + ' - ' + err.message);
+          errors++;
+        }
+      } else {
+        errors++;
+      }
+    });
+    
+    Logger.log('Completed: ' + processed + ' loans processed, ' + errors + ' errors');
+    
+    return {
+      status: 'success',
+      processed: processed,
+      errors: errors
+    };
+    
+  } catch (err) {
+    Logger.log('FATAL: ' + err.message);
+    return { status: 'error', message: err.message };
+  }
+}
+
+function getHeaderIndexMap(sheet) {
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var map = {};
+  for (var i = 0; i < headers.length; i++) {
+    if (headers[i]) {
+      map[headers[i]] = i + 1;
+    }
+  }
+  return map;
+}
+
+function updateOutstandingBalancesOnly() {
+  try {
+    var sheet = getSheetByNameOrThrow(SHEET_CALC);
+    var data = getAllRowsAsObjects(sheet);
+
+    var headerMap = getHeaderIndexMap(sheet) || {};
+    var outstandingCol = headerMap['Outstanding Balance'] || headerMap['Outstanding'] || headerMap['Outstanding_Balance'];
+    var loanNoKey = 'Loan Number';
+    var emiNoKey = 'EMI Number';
+    var emiAmtKey = 'EMI Amount';
+    var totalAmtKeyCandidates = ['Total Amount', 'Total amt to be paid', 'Total'];
+
+    if (!outstandingCol) {
+      return { status: 'error', message: 'Outstanding Balance column not found' };
+    }
+
+    var loans = {};
+    data.forEach(function(row) {
+      var loanNo = String(row[loanNoKey] || row['Loan No'] || row['LoanNumber'] || '').trim();
+      if (!loanNo) return;
+      if (!loans[loanNo]) loans[loanNo] = [];
+      loans[loanNo].push(row);
+    });
+
+    var updates = [];
+    var updatedCount = 0;
+
+    Object.keys(loans).forEach(function(loanNo) {
+      var rows = loans[loanNo];
+      if (!rows || rows.length === 0) return;
+
+      rows.sort(function(a, b) {
+        return Number(a[emiNoKey] || a['EMI No'] || 0) - Number(b[emiNoKey] || b['EMI No'] || 0);
+      });
+
+      var firstRow = rows[0];
+      var emiAmt = Number(firstRow[emiAmtKey] || firstRow['Total EMI'] || 0);
+      if (!emiAmt) {
+        return;
+      }
+
+      var totalAmount = 0;
+      for (var ci = 0; ci < totalAmtKeyCandidates.length; ci++) {
+        totalAmount = Number(firstRow[ totalAmtKeyCandidates[ci] ] || 0);
+        if (totalAmount > 0) break;
+      }
+      if (!totalAmount || totalAmount <= 0) {
+        var installments = Number(firstRow['No of Installments'] || firstRow['Installments'] || rows.length) || rows.length;
+        totalAmount = emiAmt * installments;
+      }
+
+      for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        var outstanding = Math.max(0, Number(totalAmount) - (Number(emiAmt) * i));
+        updates.push({ row: Number(row.__rowNum), value: Math.round(outstanding) });
+        updatedCount++;
+      }
+    });
+
+    if (updates.length > 0) {
+      updates.sort(function(a, b) { return a.row - b.row; });
+      var i = 0;
+      while (i < updates.length) {
+        var startRow = updates[i].row;
+        var block = [[updates[i].value]];
+        var j = i + 1;
+        var prevRow = startRow;
+        while (j < updates.length && updates[j].row === prevRow + 1) {
+          block.push([updates[j].value]);
+          prevRow = updates[j].row;
+          j++;
+        }
+        sheet.getRange(startRow, outstandingCol, block.length, 1).setValues(block);
+        i = j;
+      }
+    }
+
+    return { status: 'success', message: 'Updated ' + updatedCount + ' outstanding balances', updated: updatedCount };
+
+  } catch (err) {
+    return { status: 'error', message: 'Failed: ' + err.message };
+  }
+}
+
+function parseNumber(value) {
+  if (value === null || value === undefined || value === '') return 0;
+  if (typeof value === 'number') return value;
+  var cleaned = String(value).replace(/,/g, '');
+  var num = Number(cleaned);
+  return isNaN(num) ? 0 : num;
+}
+
+function generateMissingEMISchedules() {
+  try {
+    Logger.log('=== START: Generate Missing EMI Schedules ===');
+    
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    var calcSheet = getSheetByNameOrThrow(SHEET_CALC);
+    
+    var ledgerRows = getAllRowsAsObjects(ledgerSheet);
+    var ledgerLoanNumbers = {};
+    
+    ledgerRows.forEach(function(loan) {
+      var loanNo = String(loan['Loan No'] || loan['Loan Number'] || '').trim();
+      if (loanNo) {
+        ledgerLoanNumbers[loanNo] = {
+          sNo: loan['S No'],
+          customerName: loan['Name of the customer'],
+          mobile: loan['Mobile No'],
+          loanNo: loanNo,
+          loanDate: loan['Date of loan'],
+          loanAmount: parseNumber(loan['Loan Amount']),
+          interestRate: parseNumber(loan['Rate of Interest']),
+          installments: parseNumber(loan['No of monthly instalments']),
+          totalEMI: parseNumber(loan['Total EMI']),
+          installmentStartDate: loan['Date of Installment Starting'],
+          lastEMIDate: loan['Last Emi date'],
+          totalAmountPaid: parseNumber(loan['Total amt to be paid'])
+        };
+      }
+    });
+    
+    Logger.log('Total loans in Ledger: ' + Object.keys(ledgerLoanNumbers).length);
+    
+    var scheduleRows = getAllRowsAsObjects(calcSheet);
+    var existingScheduleLoanNumbers = {};
+    
+    scheduleRows.forEach(function(emi) {
+      var loanNo = String(emi['Loan Number'] || '').trim();
+      if (loanNo) {
+        existingScheduleLoanNumbers[loanNo] = true;
+      }
+    });
+    
+    Logger.log('Loans with existing schedules: ' + Object.keys(existingScheduleLoanNumbers).length);
+    
+    var missingLoanNumbers = [];
+    
+    Object.keys(ledgerLoanNumbers).forEach(function(loanNo) {
+      if (!existingScheduleLoanNumbers[loanNo]) {
+        missingLoanNumbers.push(loanNo);
+      }
+    });
+    
+    Logger.log('Missing schedules for ' + missingLoanNumbers.length + ' loans: ' + missingLoanNumbers.join(', '));
+    
+    if (missingLoanNumbers.length === 0) {
+      Logger.log('✓ All loans already have schedules. Nothing to generate.');
+      return {
+        status: 'success',
+        message: 'All loans already have schedules',
+        generated: 0,
+        skipped: Object.keys(ledgerLoanNumbers).length
+      };
+    }
+    
+    var generated = 0;
+    var errors = 0;
+    var errorDetails = [];
+    
+    missingLoanNumbers.forEach(function(loanNo) {
+      var loanData = ledgerLoanNumbers[loanNo];
+      
+      Logger.log('');
+      Logger.log('Processing Loan ' + loanNo + ':');
+      Logger.log('  Customer: ' + loanData.customerName);
+      Logger.log('  Loan Amount: ₹' + loanData.loanAmount);
+      Logger.log('  Installments: ' + loanData.installments);
+      Logger.log('  Total Amount to Pay: ₹' + loanData.totalAmountPaid);
+      
+      if (loanData.loanAmount <= 0 || loanData.installments <= 0) {
+        errors++;
+        errorDetails.push('Loan ' + loanNo + ': Invalid loan amount or installments');
+        Logger.log('  ✗ SKIP: Invalid data (Amount: ' + loanData.loanAmount + ', Installments: ' + loanData.installments + ')');
+        return;
+      }
+      
+      try {
+        var result = generateEMISchedule(loanData);
+        
+        if (result.status === 'success') {
+          generated++;
+          Logger.log('  ✓ Generated ' + result.generated + ' EMIs');
+        } else {
+          errors++;
+          errorDetails.push('Loan ' + loanNo + ': ' + (result.message || 'Unknown error'));
+          Logger.log('  ✗ Failed: ' + result.message);
+        }
+        
+      } catch (err) {
+        errors++;
+        errorDetails.push('Loan ' + loanNo + ': ' + err.message);
+        Logger.log('  ✗ ERROR: ' + err.message);
+      }
+    });
+    
+    Logger.log('');
+    Logger.log('=== GENERATION COMPLETE ===');
+    Logger.log('Generated: ' + generated + ' schedules');
+    Logger.log('Errors: ' + errors);
+    Logger.log('Skipped (already exist): ' + Object.keys(existingScheduleLoanNumbers).length);
+    
+    if (errorDetails.length > 0) {
+      Logger.log('');
+      Logger.log('=== ERROR DETAILS ===');
+      errorDetails.forEach(function(err, idx) {
+        Logger.log((idx + 1) + '. ' + err);
+      });
+    }
+    
+    return {
+      status: 'success',
+      message: 'Generated ' + generated + ' missing schedules',
+      totalLedgerLoans: Object.keys(ledgerLoanNumbers).length,
+      existingSchedules: Object.keys(existingScheduleLoanNumbers).length,
+      generated: generated,
+      errors: errors,
+      errorDetails: errorDetails
+    };
+    
+  } catch (err) {
+    Logger.log('FATAL ERROR: ' + err.message);
+    return { status: 'error', message: err.message };
+  }
+}
+
+function checkMissingSchedules() {
+  try {
+    Logger.log('=== Checking for Missing Schedules ===');
+    
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    var calcSheet = getSheetByNameOrThrow(SHEET_CALC);
+    
+    var ledgerRows = getAllRowsAsObjects(ledgerSheet);
+    var ledgerLoanNumbers = [];
+    
+    ledgerRows.forEach(function(loan) {
+      var loanNo = String(loan['Loan No'] || loan['Loan Number'] || '').trim();
+      if (loanNo) {
+        ledgerLoanNumbers.push({
+          loanNo: loanNo,
+          customerName: loan['Name of the customer'],
+          loanAmount: parseNumber(loan['Loan Amount']),
+          installments: parseNumber(loan['No of monthly instalments'])
+        });
+      }
+    });
+    
+    var scheduleRows = getAllRowsAsObjects(calcSheet);
+    var existingScheduleLoanNumbers = {};
+    
+    scheduleRows.forEach(function(emi) {
+      var loanNo = String(emi['Loan Number'] || '').trim();
+      if (loanNo) {
+        existingScheduleLoanNumbers[loanNo] = true;
+      }
+    });
+    
+    var missing = [];
+    var existing = [];
+    
+    ledgerLoanNumbers.forEach(function(loan) {
+      if (!existingScheduleLoanNumbers[loan.loanNo]) {
+        missing.push(loan);
+      } else {
+        existing.push(loan.loanNo);
+      }
+    });
+    
+    Logger.log('');
+    Logger.log('=== SUMMARY ===');
+    Logger.log('Total loans in Ledger: ' + ledgerLoanNumbers.length);
+    Logger.log('Loans with existing schedules: ' + existing.length);
+    Logger.log('Loans missing schedules: ' + missing.length);
+    
+    if (missing.length > 0) {
+      Logger.log('');
+      Logger.log('=== MISSING SCHEDULES ===');
+      missing.forEach(function(loan, idx) {
+        Logger.log((idx + 1) + '. Loan ' + loan.loanNo + 
+                   ' - ' + loan.customerName + 
+                   ' (₹' + loan.loanAmount + ', ' + loan.installments + ' EMIs)');
+      });
+      Logger.log('');
+      Logger.log('Run generateMissingEMISchedules() to create these schedules.');
+    } else {
+      Logger.log('');
+      Logger.log('✓ All loans already have schedules!');
+    }
+    
+    return {
+      status: 'success',
+      totalLoans: ledgerLoanNumbers.length,
+      withSchedules: existing.length,
+      missingSchedules: missing.length,
+      missingLoanNumbers: missing.map(function(l) { return l.loanNo; })
+    };
+    
+  } catch (err) {
+    Logger.log('Check Error: ' + err.message);
+    return { status: 'error', message: err.message };
+  }
+}
+
+function diagnoseMissingLoans() {
+  try {
+    var loanNumbers = ['383', '443', '449', '469', '478'];
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    var rows = getAllRowsAsObjects(ledgerSheet);
+    
+    Logger.log('=== DIAGNOSTIC: Reading Ledger Data ===');
+    
+    loanNumbers.forEach(function(loanNo) {
+      var loan = rows.find(function(r) {
+        return String(r['Loan No'] || r['Loan Number'] || '').trim() === loanNo;
+      });
+      
+      if (loan) {
+        Logger.log('');
+        Logger.log('Loan ' + loanNo + ':');
+        Logger.log('  Loan Amount: "' + loan['Loan Amount'] + '" (type: ' + typeof loan['Loan Amount'] + ')');
+        Logger.log('  Parsed Amount: ' + parseNumber(loan['Loan Amount']));
+        Logger.log('  Installments: "' + loan['No of monthly instalments'] + '"');
+        Logger.log('  Parsed Installments: ' + parseNumber(loan['No of monthly instalments']));
+        Logger.log('  Customer: "' + loan['Name of the customer'] + '"');
+        Logger.log('  Total EMI: "' + loan['Total EMI'] + '"');
+        Logger.log('  Total amt to be paid: "' + loan['Total amt to be paid'] + '"');
+      } else {
+        Logger.log('');
+        Logger.log('Loan ' + loanNo + ': NOT FOUND in Ledger');
+      }
+    });
+    
+  } catch (err) {
+    Logger.log('Error: ' + err.message);
+  }
+}
+
+function verifySpecificLoans(loanNumbers) {
+  try {
+    if (!loanNumbers || !Array.isArray(loanNumbers)) {
+      Logger.log('Please provide array of loan numbers');
+      Logger.log('Example: verifySpecificLoans(["443", "445", "449", "469", "478"])');
+      return;
+    }
+    
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    var calcSheet = getSheetByNameOrThrow(SHEET_CALC);
+    
+    var ledgerRows = getAllRowsAsObjects(ledgerSheet);
+    var scheduleRows = getAllRowsAsObjects(calcSheet);
+    
+    Logger.log('=== Verifying ' + loanNumbers.length + ' Loan Numbers ===');
+    Logger.log('');
+    
+    loanNumbers.forEach(function(loanNo) {
+      loanNo = String(loanNo).trim();
+      
+      var inLedger = ledgerRows.some(function(loan) {
+        return String(loan['Loan No'] || loan['Loan Number'] || '').trim() === loanNo;
+      });
+      
+      var hasSchedule = scheduleRows.some(function(emi) {
+        return String(emi['Loan Number'] || '').trim() === loanNo;
+      });
+      
+      Logger.log('Loan ' + loanNo + ':');
+      Logger.log('  In Ledger: ' + (inLedger ? '✓ YES' : '✗ NO'));
+      Logger.log('  Has Schedule: ' + (hasSchedule ? '✓ YES' : '✗ NO'));
+      
+      if (inLedger && !hasSchedule) {
+        Logger.log('  ⚠ MISSING SCHEDULE - Needs generation');
+      }
+      Logger.log('');
+    });
+    
+  } catch (err) {
+    Logger.log('Verify Error: ' + err.message);
+  }
+}
+
+function sortEMISchedule() {
+  try {
+    var SHEET_CALC = 'emi_schedule';
+    var ss = SpreadsheetApp.openById('1UKlhFxgU67_SyjMYNLGNcA21cgWONMiNXRwhzrcs4T4');
+    var calcSheet = ss.getSheetByName(SHEET_CALC);
+    
+    if (!calcSheet) {
+      Logger.log('ERROR: emi_schedule sheet not found');
+      return { status: 'error', message: 'emi_schedule sheet not found' };
+    }
+    
+    var lastRow = calcSheet.getLastRow();
+    
+    if (lastRow <= 1) {
+      Logger.log('No data to sort');
+      return { status: 'success', message: 'No data to sort' };
+    }
+    
+    var dataRange = calcSheet.getRange(2, 1, lastRow - 1, calcSheet.getLastColumn());
+    
+    dataRange.sort([
+      {column: 2, ascending: true},
+      {column: 4, ascending: true}
+    ]);
+    
+    Logger.log('✓ Sorted emi_schedule by Loan Number and EMI Number');
+    Logger.log('Total rows sorted: ' + (lastRow - 1));
+    
+    return { status: 'success', message: 'Sheet sorted successfully' };
+    
+  } catch (err) {
+    Logger.log('Sort Error: ' + err.message);
+    return { status: 'error', message: err.message };
+  }
+}
+
+function archiveCompletedLoans(removeFromActive) {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var calcSheet = ss.getSheetByName(SHEET_CALC);
+    var archiveSheetName = 'closed_emi_schedule';
+    var archiveSheet = ss.getSheetByName(archiveSheetName);
+    
+    if (!archiveSheet) {
+      archiveSheet = ss.insertSheet(archiveSheetName);
+      var headers = calcSheet.getRange(1, 1, 1, calcSheet.getLastColumn()).getValues();
+      archiveSheet.getRange(1, 1, 1, headers[0].length).setValues(headers);
+      archiveSheet.getRange(1, 1, 1, headers[0].length)
+        .setBackground('#00FF00')
+        .setFontWeight('bold');
+      Logger.log('Created new archive sheet: ' + archiveSheetName);
+    }
+    
+    var allData = calcSheet.getDataRange().getValues();
+    var headers = allData[0];
+    
+    var loanNoCol = headers.indexOf('Loan Number');
+    var statusCol = headers.indexOf('Status');
+    var emiNoCol = headers.indexOf('EMI Number');
+    
+    if (loanNoCol === -1 || statusCol === -1) {
+      return { status: 'error', message: 'Required columns not found' };
+    }
+    
+    var loanGroups = {};
+    for (var i = 1; i < allData.length; i++) {
+      var loanNo = String(allData[i][loanNoCol] || '').trim();
+      if (!loanNo) continue;
+      
+      if (!loanGroups[loanNo]) {
+        loanGroups[loanNo] = {
+          rows: [],
+          allPaid: true
+        };
+      }
+      
+      // Use isNotPaid helper
+      if (isNotPaid(allData[i][statusCol])) {
+        loanGroups[loanNo].allPaid = false;
+      }
+      
+      loanGroups[loanNo].rows.push({
+        rowIndex: i + 1,
+        data: allData[i],
+        emiNo: allData[i][emiNoCol]
+      });
+    }
+    
+    var completedLoans = [];
+    var rowsToArchive = [];
+    var rowIndicesToDelete = [];
+    
+    Object.keys(loanGroups).forEach(function(loanNo) {
+      var group = loanGroups[loanNo];
+      
+      if (group.allPaid && group.rows.length > 0) {
+        group.rows.sort(function(a, b) {
+          return Number(a.emiNo || 0) - Number(b.emiNo || 0);
+        });
+        
+        completedLoans.push({
+          loanNo: loanNo,
+          customerName: group.rows[0].data[headers.indexOf('Customer Name')],
+          emiCount: group.rows.length
+        });
+        
+        group.rows.forEach(function(row) {
+          rowsToArchive.push(row.data);
+          if (removeFromActive) {
+            rowIndicesToDelete.push(row.rowIndex);
+          }
+        });
+      }
+    });
+    
+    if (completedLoans.length === 0) {
+      Logger.log('No completed loans found');
+      return {
+        status: 'success',
+        message: 'No completed loans to archive',
+        archivedLoans: 0
+      };
+    }
+    
+    Logger.log('Found ' + completedLoans.length + ' completed loans:');
+    completedLoans.forEach(function(loan) {
+      Logger.log('  - Loan ' + loan.loanNo + ' (' + loan.customerName + '): ' + loan.emiCount + ' EMIs');
+    });
+    
+    if (rowsToArchive.length > 0) {
+      var startRow = archiveSheet.getLastRow() + 1;
+      archiveSheet.getRange(startRow, 1, rowsToArchive.length, rowsToArchive[0].length)
+                  .setValues(rowsToArchive);
+      Logger.log('Archived ' + rowsToArchive.length + ' EMI records to closed_emi_schedule');
+    }
+    
+    var deletedCount = 0;
+    if (removeFromActive && rowIndicesToDelete.length > 0) {
+      rowIndicesToDelete.sort(function(a, b) { return b - a; });
+      
+      Logger.log('Deleting ' + rowIndicesToDelete.length + ' rows from emi_schedule...');
+      
+      rowIndicesToDelete.forEach(function(rowNum) {
+        calcSheet.deleteRow(rowNum);
+        deletedCount++;
+      });
+      
+      Logger.log('Successfully deleted ' + deletedCount + ' rows from emi_schedule');
+    }
+    
+    return {
+      status: 'success',
+      message: 'Archived ' + completedLoans.length + ' completed loans',
+      archivedLoans: completedLoans.length,
+      archivedEMIs: rowsToArchive.length,
+      deletedFromActive: deletedCount,
+      completedLoansList: completedLoans
+    };
+    
+  } catch (err) {
+    Logger.log('Archive Error: ' + err.message);
+    Logger.log('Stack trace: ' + err.stack);
+    return { status: 'error', message: err.message };
+  }
+}
+
+function recalculateFinancialTotals() {
+  try {
+    Logger.log('=== START: Recalculate Financial Totals ===');
+    
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    var lastRow = ledgerSheet.getLastRow();
+    
+    if (lastRow < 2) {
+      return { status: 'success', message: 'No data to recalculate', updated: 0 };
+    }
+    
+    var data = ledgerSheet.getRange(1, 1, lastRow, 18).getValues();
+    var headers = data[0];
+    
+    var interestCol = 12;
+    var installmentsCol = 10;
+    var principalCol = 13;
+    var totalInterestCol = 15;
+    var totalPrincipalCol = 16;
+    var totalAmountCol = 17;
+    
+    var updatedCount = 0;
+    var updates = [];
+    
+    for (var i = 1; i < data.length; i++) {
+      var interest = parseFloat(data[i][interestCol]) || 0;
+      var installments = parseFloat(data[i][installmentsCol]) || 0;
+      var principal = parseFloat(data[i][principalCol]) || 0;
+      
+      var totalInterest = Math.round(interest * installments);
+      var totalPrincipal = Math.round(principal * installments);
+      var totalAmount = totalInterest + totalPrincipal;
+      
+      updates.push({
+        row: i + 1,
+        totalInterest: totalInterest,
+        totalPrincipal: totalPrincipal,
+        totalAmount: totalAmount
+      });
+      
+      updatedCount++;
+    }
+    
+    if (updates.length > 0) {
+      Logger.log('Updating ' + updates.length + ' rows...');
+      
+      var totalInterestValues = updates.map(function(u) { return [u.totalInterest]; });
+      ledgerSheet.getRange(2, totalInterestCol + 1, totalInterestValues.length, 1)
+                 .setValues(totalInterestValues);
+      
+      var totalPrincipalValues = updates.map(function(u) { return [u.totalPrincipal]; });
+      ledgerSheet.getRange(2, totalPrincipalCol + 1, totalPrincipalValues.length, 1)
+                 .setValues(totalPrincipalValues);
+      
+      var totalAmountValues = updates.map(function(u) { return [u.totalAmount]; });
+      ledgerSheet.getRange(2, totalAmountCol + 1, totalAmountValues.length, 1)
+                 .setValues(totalAmountValues);
+      
+      Logger.log('Successfully updated all financial totals');
+    }
+    
+    Logger.log('=== COMPLETE: Updated ' + updatedCount + ' loan records ===');
+    
+    return {
+      status: 'success',
+      message: 'Successfully recalculated financial totals for ' + updatedCount + ' loans',
+      updated: updatedCount
+    };
+    
+  } catch (err) {
+    Logger.log('ERROR: ' + err.message);
+    return { status: 'error', message: err.message };
+  }
+}
+
+function recalculateSingleLoan(loanNo) {
+  try {
+    if (!loanNo) {
+      return { status: 'error', message: 'Loan number required' };
+    }
+    
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    var rows = getAllRowsAsObjects(ledgerSheet);
+    
+    var targetRow = rows.find(function(row) {
+      return String(row['Loan No'] || row['Loan Number'] || '').trim() === String(loanNo).trim();
+    });
+    
+    if (!targetRow) {
+      return { status: 'error', message: 'Loan not found' };
+    }
+    
+    var rowIndex = targetRow.__rowNum;
+    
+    var interest = parseFloat(targetRow['Interest'] || 0) || 0;
+    var installments = parseFloat(targetRow['No of monthly instalments'] || 0) || 0;
+    var principal = parseFloat(targetRow['Principal'] || 0) || 0;
+    
+    var totalInterest = Math.round(interest * installments);
+    var totalPrincipal = Math.round(principal * installments);
+    var totalAmount = totalInterest + totalPrincipal;
+    
+    ledgerSheet.getRange(rowIndex, 16).setValue(totalInterest);
+    ledgerSheet.getRange(rowIndex, 17).setValue(totalPrincipal);
+    ledgerSheet.getRange(rowIndex, 18).setValue(totalAmount);
+    
+    Logger.log('Updated Loan ' + loanNo + ': Total Interest=' + totalInterest + 
+               ', Total Principal=' + totalPrincipal + ', Total Amount=' + totalAmount);
+    
+    return {
+      status: 'success',
+      message: 'Loan ' + loanNo + ' updated successfully',
+      totalInterest: totalInterest,
+      totalPrincipal: totalPrincipal,
+      totalAmount: totalAmount
+    };
+    
+  } catch (err) {
+    return { status: 'error', message: err.message };
+  }
+}
+
+function onOpen() {
+  var ui = SpreadsheetApp.getUi();
+  ui.createMenu('Anvitha Finance')
+    .addItem('Recalculate All Financial Totals', 'recalculateFinancialTotals')
+    .addSeparator()
+    .addItem('Check Missing Schedules', 'checkMissingSchedules')
+    .addItem('Generate Missing Schedules', 'generateMissingEMISchedules')
+    .addItem('Sort EMI Schedule', 'sortEMISchedule')
+    .addSeparator()
+    .addItem('Update Outstanding Balances', 'updateOutstandingBalancesOnly')
+    .addItem('Update Last EMI Dates', 'updateLastEmiDates')
+    .addSeparator()
+    .addItem('Sync Principal & Interest to Schedule', 'syncPrincipalInterestToSchedule')
+    .addSeparator()
+    .addItem('Preview Completed Collections', 'previewCompletedCollections')
+    .addItem('Archive Completed Collections', 'archiveCompletedCollections')
+    .addSeparator()
+    .addItem('Test Status Functions', 'testStatusNormalization')
+    .addItem('Audit Status Values', 'auditScheduleStatusValues')
+    .addItem('Fix Non-Standard Status', 'fixNonStandardStatusValues')
+    .addToUi();
+}
+
+function syncPrincipalInterestToSchedule() {
+  try {
+    Logger.log('=== START: Sync Principal & Interest to emi_schedule ===');
+    
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var ledgerSheet = ss.getSheetByName(SHEET_LEDGER);
+    var scheduleSheet = ss.getSheetByName(SHEET_CALC);
+    
+    var ledgerData = ledgerSheet.getDataRange().getValues();
+    var ledgerHeaders = ledgerData[0];
+    
+    var loanNoColIndex = ledgerHeaders.indexOf('Loan No');
+    if (loanNoColIndex === -1) loanNoColIndex = ledgerHeaders.indexOf('Loan Number');
+    
+    var principalColIndex = 13;
+    var interestColIndex = 12;
+    
+    Logger.log('Reading Ledger - Loan No Col: ' + loanNoColIndex + ', Principal Col: N (' + principalColIndex + '), Interest Col: M (' + interestColIndex + ')');
+    
+    var loanDataMap = {};
+    
+    for (var i = 1; i < ledgerData.length; i++) {
+      var loanNo = String(ledgerData[i][loanNoColIndex] || '').trim();
+      if (loanNo) {
+        var principal = parseFloat(ledgerData[i][principalColIndex]) || 0;
+        var interest = parseFloat(ledgerData[i][interestColIndex]) || 0;
+        
+        loanDataMap[loanNo] = {
+          principal: Math.round(principal),
+          interest: Math.round(interest)
+        };
+        
+        if (i <= 3) {
+          Logger.log('Loan ' + loanNo + ': Principal=' + Math.round(principal) + ', Interest=' + Math.round(interest));
+        }
+      }
+    }
+    
+    Logger.log('Created lookup map for ' + Object.keys(loanDataMap).length + ' loans');
+    
+    var scheduleData = scheduleSheet.getDataRange().getValues();
+    var scheduleHeaders = scheduleData[0];
+    
+    var scheduleLoanNoCol = scheduleHeaders.indexOf('Loan Number');
+    
+    var updatedCount = 0;
+    var notFoundCount = 0;
+    var updates = [];
+    
+    for (var i = 1; i < scheduleData.length; i++) {
+      var loanNo = String(scheduleData[i][scheduleLoanNoCol] || '').trim();
+      
+      if (!loanNo) continue;
+      
+      var loanData = loanDataMap[loanNo];
+      
+      if (loanData) {
+        updates.push({
+          rowIndex: i + 1,
+          principal: loanData.principal,
+          interest: loanData.interest
+        });
+        updatedCount++;
+      } else {
+        notFoundCount++;
+        if (notFoundCount <= 5) {
+          Logger.log('Warning: Loan ' + loanNo + ' not found in Ledger (Schedule row ' + (i + 1) + ')');
+        }
+      }
+    }
+    
+    if (updates.length > 0) {
+      Logger.log('Updating ' + updates.length + ' EMI records...');
+      
+      for (var i = 0; i < Math.min(3, updates.length); i++) {
+        Logger.log('Row ' + updates[i].rowIndex + ': Setting Principal=' + updates[i].principal + ', Interest=' + updates[i].interest);
+      }
+      
+      updates.forEach(function(update) {
+        scheduleSheet.getRange(update.rowIndex, 7).setValue(update.principal);
+        scheduleSheet.getRange(update.rowIndex, 8).setValue(update.interest);
+      });
+      
+      Logger.log('Successfully updated Principal and Interest components');
+    }
+    
+    Logger.log('=== COMPLETE ===');
+    Logger.log('Updated: ' + updatedCount + ' EMI records');
+    Logger.log('Not found in Ledger: ' + notFoundCount);
+    
+    try {
+      SpreadsheetApp.getUi().alert(
+        'Sync Complete!\n\n' +
+        'Updated: ' + updatedCount + ' EMI records\n' +
+        'Not found in Ledger: ' + notFoundCount + '\n\n' +
+        'Principal Component (Column G) and Interest Component (Column H)\n' +
+        'have been synced from Ledger sheet (Columns N and M).'
+      );
+    } catch (e) {
+      Logger.log('Alert skipped (no UI context)');
+    }
+    
+    return {
+      status: 'success',
+      message: 'Synchronized ' + updatedCount + ' EMI records',
+      updated: updatedCount,
+      notFound: notFoundCount
+    };
+    
+  } catch (err) {
+    Logger.log('ERROR: ' + err.message);
+    return { status: 'error', message: err.message };
+  }
+}
+
+function syncSingleLoanToSchedule(loanNo) {
+  try {
+    if (!loanNo) {
+      return { status: 'error', message: 'Loan number required' };
+    }
+    
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    var scheduleSheet = getSheetByNameOrThrow(SHEET_CALC);
+    
+    var ledgerRows = getAllRowsAsObjects(ledgerSheet);
+    var loanData = ledgerRows.find(function(loan) {
+      return String(loan['Loan No'] || loan['Loan Number'] || '').trim() === String(loanNo).trim();
+    });
+    
+    if (!loanData) {
+      return { status: 'error', message: 'Loan ' + loanNo + ' not found in Ledger' };
+    }
+    
+    var principal = Math.round(parseFloat(loanData['Principal'] || 0) || 0);
+    var interest = Math.round(parseFloat(loanData['Interest'] || 0) || 0);
+    
+    var scheduleRows = getAllRowsAsObjects(scheduleSheet);
+    var loanEMIs = scheduleRows.filter(function(emi) {
+      return String(emi['Loan Number'] || '').trim() === String(loanNo).trim();
+    });
+    
+    if (loanEMIs.length === 0) {
+      return { status: 'error', message: 'No EMI records found for loan ' + loanNo };
+    }
+    
+    loanEMIs.forEach(function(emi) {
+      scheduleSheet.getRange(emi.__rowNum, 7).setValue(principal);
+      scheduleSheet.getRange(emi.__rowNum, 8).setValue(interest);
+    });
+    
+    Logger.log('Updated ' + loanEMIs.length + ' EMI records for Loan ' + loanNo);
+    Logger.log('Principal: ' + principal + ', Interest: ' + interest);
+    
+    return {
+      status: 'success',
+      message: 'Updated ' + loanEMIs.length + ' EMI records for loan ' + loanNo,
+      updated: loanEMIs.length,
+      principal: principal,
+      interest: interest
+    };
+    
+  } catch (err) {
+    return { status: 'error', message: err.message };
+  }
+}
+
+function archiveCompletedCollections() {
+  try {
+    Logger.log('=== START: Archive Completed Collections ===');
+    
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var collectionSheet = ss.getSheetByName(SHEET_COLLECTION);
+    var ledgerSheet = ss.getSheetByName(SHEET_LEDGER);
+    var closedCollectionSheetName = 'Closed_emi_collection';
+    var closedCollectionSheet = ss.getSheetByName(closedCollectionSheetName);
+    
+    if (!closedCollectionSheet) {
+      closedCollectionSheet = ss.insertSheet(closedCollectionSheetName);
+      var headers = collectionSheet.getRange(1, 1, 1, collectionSheet.getLastColumn()).getValues();
+      closedCollectionSheet.getRange(1, 1, 1, headers[0].length).setValues(headers);
+      closedCollectionSheet.getRange(1, 1, 1, headers[0].length)
+        .setBackground('#00FF00')
+        .setFontWeight('bold');
+      Logger.log('Created new sheet: ' + closedCollectionSheetName);
+    }
+    
+    var collectionData = getAllRowsAsObjects(collectionSheet);
+    var ledgerData = getAllRowsAsObjects(ledgerSheet);
+    
+    var loanInstallmentsMap = {};
+    ledgerData.forEach(function(loan) {
+      var loanNo = String(loan['Loan No'] || loan['Loan Number'] || '').trim();
+      if (loanNo) {
+        loanInstallmentsMap[loanNo] = parseInt(loan['No of monthly instalments']) || 0;
+      }
+    });
+    
+    var loanCollectionsMap = {};
+    collectionData.forEach(function(collection, index) {
+      var loanNo = String(collection['Loan Number'] || '').trim();
+      
+      if (!loanNo) return;
+      
+      if (!loanCollectionsMap[loanNo]) {
+        loanCollectionsMap[loanNo] = {
+          collections: [],
+          paidCount: 0,
+          totalRequired: loanInstallmentsMap[loanNo] || 0
+        };
+      }
+      
+      loanCollectionsMap[loanNo].collections.push({
+        row: collection,
+        rowIndex: collection.__rowNum
+      });
+      
+      // Use isPaidStatus helper
+      if (isPaidStatus(collection['Status'])) {
+        loanCollectionsMap[loanNo].paidCount++;
+      }
+    });
+    
+    var completedLoans = [];
+    var rowsToArchive = [];
+    var rowIndicesToDelete = [];
+    
+    Object.keys(loanCollectionsMap).forEach(function(loanNo) {
+      var loanData = loanCollectionsMap[loanNo];
+      
+      if (loanData.totalRequired > 0 && loanData.paidCount === loanData.totalRequired) {
+        completedLoans.push({
+          loanNo: loanNo,
+          paidCount: loanData.paidCount,
+          totalRequired: loanData.totalRequired
+        });
+        
+        loanData.collections.forEach(function(item) {
+          var headers = collectionSheet.getRange(1, 1, 1, collectionSheet.getLastColumn()).getValues()[0];
+          var rowData = headers.map(function(header) {
+            return item.row[header] || '';
+          });
+          rowsToArchive.push(rowData);
+          rowIndicesToDelete.push(item.rowIndex);
+        });
+      }
+    });
+    
+    if (completedLoans.length === 0) {
+      Logger.log('No completed loans found');
+      return {
+        status: 'success',
+        message: 'No completed loans to archive',
+        archivedLoans: 0
+      };
+    }
+    
+    Logger.log('Found ' + completedLoans.length + ' completed loans:');
+    completedLoans.forEach(function(loan) {
+      Logger.log('  - Loan ' + loan.loanNo + ': ' + loan.paidCount + '/' + loan.totalRequired + ' EMIs paid');
+    });
+    
+    if (rowsToArchive.length > 0) {
+      var startRow = closedCollectionSheet.getLastRow() + 1;
+      closedCollectionSheet.getRange(startRow, 1, rowsToArchive.length, rowsToArchive[0].length)
+                          .setValues(rowsToArchive);
+      Logger.log('Archived ' + rowsToArchive.length + ' collection records to ' + closedCollectionSheetName);
+    }
+    
+    var deletedCount = 0;
+    if (rowIndicesToDelete.length > 0) {
+      rowIndicesToDelete.sort(function(a, b) { return b - a; });
+      
+      Logger.log('Deleting ' + rowIndicesToDelete.length + ' rows from emi_collection...');
+      
+      rowIndicesToDelete.forEach(function(rowNum) {
+        collectionSheet.deleteRow(rowNum);
+        deletedCount++;
+      });
+      
+      Logger.log('Successfully deleted ' + deletedCount + ' rows from emi_collection');
+    }
+    
+    var summary = {
+      status: 'success',
+      message: 'Archived ' + completedLoans.length + ' completed loans',
+      archivedLoans: completedLoans.length,
+      archivedCollections: rowsToArchive.length,
+      deletedFromActive: deletedCount,
+      completedLoansList: completedLoans
+    };
+    
+    Logger.log('=== COMPLETE ===');
+    Logger.log(JSON.stringify(summary, null, 2));
+    
+    try {
+      SpreadsheetApp.getUi().alert(
+        'Archive Complete!\n\n' +
+        'Completed Loans: ' + completedLoans.length + '\n' +
+        'Collections Archived: ' + rowsToArchive.length + '\n' +
+        'Deleted from Active: ' + deletedCount + '\n\n' +
+        completedLoans.map(function(l) { 
+          return 'Loan ' + l.loanNo + ': ' + l.paidCount + ' EMIs'; 
+        }).join('\n')
+      );
+    } catch (e) {
+      Logger.log('Alert skipped (no UI context)');
+    }
+    
+    return summary;
+    
+  } catch (err) {
+    Logger.log('Archive Error: ' + err.message);
+    return { status: 'error', message: err.message };
+  }
+}
+
+function previewCompletedCollections() {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var collectionSheet = ss.getSheetByName(SHEET_COLLECTION);
+    var ledgerSheet = ss.getSheetByName(SHEET_LEDGER);
+    
+    var collectionData = getAllRowsAsObjects(collectionSheet);
+    var ledgerData = getAllRowsAsObjects(ledgerSheet);
+    
+    var loanInstallmentsMap = {};
+    ledgerData.forEach(function(loan) {
+      var loanNo = String(loan['Loan No'] || loan['Loan Number'] || '').trim();
+      if (loanNo) {
+        loanInstallmentsMap[loanNo] = parseInt(loan['No of monthly instalments']) || 0;
+      }
+    });
+    
+    var loanCollectionsMap = {};
+    collectionData.forEach(function(collection) {
+      var loanNo = String(collection['Loan Number'] || '').trim();
+      
+      if (!loanNo) return;
+      
+      if (!loanCollectionsMap[loanNo]) {
+        loanCollectionsMap[loanNo] = {
+          customerName: collection['Customer Name'] || '',
+          collectionsCount: 0,
+          paidCount: 0,
+          totalRequired: loanInstallmentsMap[loanNo] || 0
+        };
+      }
+      
+      loanCollectionsMap[loanNo].collectionsCount++;
+      
+      // Use isPaidStatus helper
+      if (isPaidStatus(collection['Status'])) {
+        loanCollectionsMap[loanNo].paidCount++;
+      }
+    });
+    
+    Logger.log('=== PREVIEW: Completed Loans Ready for Archive ===');
+    Logger.log('');
+    
+    var readyToArchive = [];
+    Object.keys(loanCollectionsMap).forEach(function(loanNo) {
+      var data = loanCollectionsMap[loanNo];
+      if (data.totalRequired > 0 && data.paidCount === data.totalRequired) {
+        readyToArchive.push({
+          loanNo: loanNo,
+          customerName: data.customerName,
+          paidCount: data.paidCount,
+          totalRequired: data.totalRequired,
+          collectionsCount: data.collectionsCount
+        });
+      }
+    });
+    
+    if (readyToArchive.length === 0) {
+      Logger.log('No completed loans ready for archive.');
+      return { status: 'success', readyToArchive: 0 };
+    }
+    
+    Logger.log('Found ' + readyToArchive.length + ' completed loans:');
+    Logger.log('');
+    
+    readyToArchive.forEach(function(loan, index) {
+      Logger.log((index + 1) + '. Loan ' + loan.loanNo + 
+                 ' - ' + loan.customerName + 
+                 ' (' + loan.paidCount + '/' + loan.totalRequired + ' paid, ' + 
+                 loan.collectionsCount + ' collection records)');
+    });
+    
+    Logger.log('');
+    Logger.log('Run archiveCompletedCollections() to move these to Closed_emi_collection');
+    
+    return {
+      status: 'success',
+      readyToArchive: readyToArchive.length,
+      loans: readyToArchive
+    };
+    
+  } catch (err) {
+    Logger.log('Preview Error: ' + err.message);
+    return { status: 'error', message: err.message };
+  }
+}
+
+function searchInLedger(searchType, searchValue) {
+  try {
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    var rows = getAllRowsAsObjects(ledgerSheet);
+    
+    var searchField = {
+      'loanNo': 'Loan No',
+      'customerName': 'Name of the customer',
+      'mobile': 'Mobile No',
+      'vehicleReg': 'Registration Number'
+    }[searchType];
+    
+    Logger.log('Searching for: ' + searchValue + ' in field: ' + searchField);
+    
+    if (!searchField) {
+      Logger.log('Invalid search type: ' + searchType);
+      return null;
+    }
+    
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var cellValue = String(row[searchField] || '').trim();
+      var searchVal = String(searchValue).trim();
+      
+      if (cellValue.toLowerCase() === searchVal.toLowerCase()) {
+        Logger.log('Match found: ' + cellValue);
+        return row;
+      }
+    }
+    
+    Logger.log('No match found');
+    return null;
+    
+  } catch (error) {
+    Logger.log('Error in searchInLedger: ' + error.message);
+    return null;
+  }
+}
+
+function searchInClosedLoans(searchType, searchValue) {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var closedSheet = ss.getSheetByName('Closed_Loans');
+    
+    if (!closedSheet) {
+      Logger.log('Closed_Loans sheet not found');
+      return null;
+    }
+    
+    var rows = getAllRowsAsObjects(closedSheet);
+    
+    var searchField = {
+      'loanNo': 'Loan No',
+      'customerName': 'Name of the customer',
+      'mobile': 'Mobile No',
+      'vehicleReg': 'Registration Number'
+    }[searchType];
+    
+    if (!searchField) return null;
+    
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var cellValue = String(row[searchField] || '').trim().toLowerCase();
+      var searchVal = String(searchValue).trim().toLowerCase();
+      
+      if (cellValue.indexOf(searchVal) !== -1) {
+        return row;
+      }
+    }
+    
+    return null;
+    
+  } catch (error) {
+    Logger.log('Error in searchInClosedLoans: ' + error.message);
+    return null;
+  }
+}
+
+function getScheduleFromSheet(sheet, loanNo) {
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const loanColIndex = headers.indexOf('Loan Number');
+  
+  const schedule = [];
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][loanColIndex]) === String(loanNo)) {
+      const row = {};
+      headers.forEach((header, idx) => {
+        row[header] = data[i][idx];
+      });
+      schedule.push(row);
+    }
+  }
+  return schedule;
+}
+
+function getCollectionsFromSheet(sheet, loanNo) {
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const loanColIndex = headers.indexOf('Loan Number');
+  
+  const records = [];
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][loanColIndex]) === String(loanNo)) {
+      const row = {};
+      headers.forEach((header, idx) => {
+        row[header] = data[i][idx];
+      });
+      records.push(row);
+    }
+  }
+  return records;
+}
+function getCollectionsByDateRange(sheet, fromDate, toDate) {
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const dateColIndex = headers.indexOf('Collection Date');
+
+  Logger.log('=== getCollectionsByDateRange DEBUG ===');
+  Logger.log('Sheet name: ' + sheet.getName());
+  Logger.log('Total rows: ' + data.length);
+  Logger.log('Date column index: ' + dateColIndex);
+  Logger.log('Looking for dates between: ' + fromDate + ' and ' + toDate);
+
+  if (dateColIndex === -1) {
+    Logger.log('ERROR: Collection Date column not found');
+    Logger.log('Available columns: ' + headers.join(', '));
+    return [];
+  }
+
+  // Helper: convert many possible cell values into a Date (start of day) or null
+  function parseToDate(value) {
+    if (value === null || value === undefined || value === '') return null;
+
+    // If already a Date object
+    if (value instanceof Date && !isNaN(value.getTime())) {
+      return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    }
+
+    // If a number: could be Google Sheets serial date or epoch ms
+    if (typeof value === 'number' && isFinite(value)) {
+      // Heuristics:
+      // - Typical Sheets serial date ~ 40000-46000
+      // - Epoch ms is very large > 1e12
+      if (value > 1000000000000) { // looks like epoch ms
+        var dt = new Date(value);
+        if (!isNaN(dt.getTime())) return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+      } else if (value > 1 && value < 100000) { // likely Sheets serial date
+        // Convert Sheets serial to JS Date (UTC) and then to local date fields
+        // Excel/Sheets epoch starts at 1899-12-30 (serial 1 = 1899-12-31). Use common formula.
+        var jsDate = new Date(Math.round((value - 25569) * 86400 * 1000));
+        if (!isNaN(jsDate.getTime())) return new Date(jsDate.getFullYear(), jsDate.getMonth(), jsDate.getDate());
+      } else {
+        // try treating as epoch seconds
+        var maybeMs = value * 1000;
+        var dt2 = new Date(maybeMs);
+        if (!isNaN(dt2.getTime())) return new Date(dt2.getFullYear(), dt2.getMonth(), dt2.getDate());
+      }
+    }
+
+    // If a string: try to normalize and parse several common formats
+    if (typeof value === 'string') {
+      var s = value.trim();
+
+      // If it contains a full date string with weekday/time, try Date.parse first
+      var dt = Date.parse(s);
+      if (!isNaN(dt)) {
+        var dtObj = new Date(dt);
+        return new Date(dtObj.getFullYear(), dtObj.getMonth(), dtObj.getDate());
+      }
+
+      // Normalize separators
+      s = s.replace(/\//g, '-').replace(/\s+/g, ' ').trim();
+
+      // If format looks like dd-mm-yyyy or dd-mm-yy
+      var dmy = s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})/);
+      if (dmy) {
+        var dd = parseInt(dmy[1], 10);
+        var mm = parseInt(dmy[2], 10);
+        var yyyy = parseInt(dmy[3], 10);
+        if (yyyy < 100) { // two-digit year -> assume 2000+
+          yyyy += 2000;
+        }
+        var parsed = new Date(yyyy, mm - 1, dd);
+        if (!isNaN(parsed.getTime())) return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+      }
+
+      // If format looks like yyyy-mm-dd
+      var ymd = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (ymd) {
+        var yyyy2 = parseInt(ymd[1], 10);
+        var mm2 = parseInt(ymd[2], 10);
+        var dd2 = parseInt(ymd[3], 10);
+        var parsed2 = new Date(yyyy2, mm2 - 1, dd2);
+        if (!isNaN(parsed2.getTime())) return new Date(parsed2.getFullYear(), parsed2.getMonth(), parsed2.getDate());
+      }
+
+      // Last attempt: Date.parse on trimmed string (already attempted above but re-check)
+      var dt3 = Date.parse(s);
+      if (!isNaN(dt3)) {
+        var dtObj3 = new Date(dt3);
+        return new Date(dtObj3.getFullYear(), dtObj3.getMonth(), dtObj3.getDate());
+      }
+    }
+
+    return null; // couldn't parse
+  }
+
+  // Helper: format Date to DD-MM-YYYY string for logs
+  function formatDDMMYYYY(d) {
+    if (!d) return '';
+    var dd = String(d.getDate()).padStart(2, '0');
+    var mm = String(d.getMonth() + 1).padStart(2, '0');
+    var yyyy = d.getFullYear();
+    return dd + '-' + mm + '-' + yyyy;
+  }
+
+  // Normalize fromDate/toDate arguments (they might be strings or Date objects)
+  var fromDt = fromDate ? parseToDate(fromDate) : null;
+  var toDt = toDate ? parseToDate(toDate) : null;
+
+  if (fromDate && !fromDt) Logger.log('WARNING: could not parse fromDate: ' + fromDate);
+  if (toDate && !toDt) Logger.log('WARNING: could not parse toDate: ' + toDate);
+
+  if (fromDt) Logger.log('Normalized fromDate -> ' + formatDDMMYYYY(fromDt));
+  if (toDt) Logger.log('Normalized toDate -> ' + formatDDMMYYYY(toDt));
+
+  const records = [];
+
+  for (let i = 1; i < data.length; i++) {
+    const rowDateValue = data[i][dateColIndex];
+
+    if (rowDateValue === null || rowDateValue === undefined || rowDateValue === '') continue;
+
+    var rowDt = parseToDate(rowDateValue);
+    if (!rowDt) {
+      // log a few unparsable rows for debugging (avoid huge logs)
+      if (i <= 10) {
+        Logger.log('Row ' + (i + 1) + ': Unable to parse date value -> "' + String(rowDateValue) + '"');
+      }
+      continue;
+    }
+
+    var rowTs = rowDt.getTime();
+    // logging first few rows
+    if (i <= 5) {
+      Logger.log('Row ' + (i + 1) + ': date=' + formatDDMMYYYY(rowDt) + ', raw="' + String(rowDateValue) + '"');
+    }
+
+    // If from/to exist, compare by timestamp
+    if ((fromDt && rowTs < fromDt.getTime()) || (toDt && rowTs > toDt.getTime())) {
+      continue;
+    }
+
+    // date is in range
+    Logger.log('MATCH FOUND! Row ' + (i + 1) + ': date=' + formatDDMMYYYY(rowDt));
+    const row = {};
+    headers.forEach((header, idx) => {
+      row[header] = data[i][idx];
+    });
+    records.push(row);
+  }
+
+  Logger.log('Found ' + records.length + ' records in date range');
+  return records;
+}
+
+
+function debugFetchSchedules() {
+  Logger.log('=== debugFetchSchedules START ===');
+
+  // Try active spreadsheet first (works when script is bound to the spreadsheet)
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss) {
+    Logger.log('Using getActiveSpreadsheet()');
+  } else {
+    // Fallback: try Spreadsheet ID/URL from script properties
+    Logger.log('getActiveSpreadsheet() returned null. Trying fallback from script properties...');
+    var props = PropertiesService.getScriptProperties();
+    var sheetId = props.getProperty('SPREADSHEET_ID');
+    var sheetUrl = props.getProperty('SPREADSHEET_URL');
+
+    if (sheetId) {
+      try {
+        ss = SpreadsheetApp.openById(sheetId);
+        Logger.log('Opened spreadsheet by ID from script properties.');
+      } catch (e) {
+        Logger.log('Failed to open by ID: ' + e);
+      }
+    } else if (sheetUrl) {
+      try {
+        ss = SpreadsheetApp.openByUrl(sheetUrl);
+        Logger.log('Opened spreadsheet by URL from script properties.');
+      } catch (e) {
+        Logger.log('Failed to open by URL: ' + e);
+      }
+    } else {
+      Logger.log('No SPREADSHEET_ID or SPREADSHEET_URL found in script properties. Aborting.');
+      Logger.log('To fix: set a script property named SPREADSHEET_ID (the id from the sheet URL) OR bind the script to the spreadsheet.');
+      return { error: 'no_spreadsheet' };
+    }
+  }
+
+  if (!ss) {
+    Logger.log('Unable to obtain a Spreadsheet object. Exiting.');
+    return { error: 'open_failed' };
+  }
+
+  // Names to check (update these if your tab names are different)
+  const wanted = {
+    emi_collection: 'emi_collection',
+    closed_emi_collection: 'Closed_emi_collection',
+    emi_schedule: 'emi_schedule',
+    closed_emi_schedule: 'Closed_emi_schedule'
+  };
+
+  // Build a map of actual sheet names available (lowercased => actual)
+  const availableSheets = ss.getSheets().map(sh => sh.getName());
+  const nameMap = {};
+  availableSheets.forEach(n => { nameMap[n.toLowerCase()] = n; });
+
+  // Helper to resolve sheet name case-insensitively and with small fuzzy tolerance
+  function resolveSheet(name) {
+    if (!name) return null;
+    if (nameMap[name.toLowerCase()]) return ss.getSheetByName(nameMap[name.toLowerCase()]);
+    // try replacing spaces/underscores/hyphens
+    const alt = name.toLowerCase().replace(/[\s_-]+/g, '');
+    for (var k in nameMap) {
+      if (k.replace(/[\s_-]+/g, '') === alt) {
+        return ss.getSheetByName(nameMap[k]);
+      }
+    }
+    return null;
+  }
+
+  // Test date range (change these to test other dates)
+  const testFrom = '14-10-2025';
+  const testTo = '14-10-2025';
+
+  const results = {};
+
+  for (const key in wanted) {
+    const wantName = wanted[key];
+    const sh = resolveSheet(wantName);
+    if (!sh) {
+      Logger.log(`Sheet not found (attempted): ${wantName}  -- Available tabs: ${availableSheets.join(', ')}`);
+      results[key] = { found: false, attemptedName: wantName, available: availableSheets };
+      continue;
+    }
+
+    try {
+      Logger.log(`Fetching from sheet: ${sh.getName()}`);
+      const recs = getCollectionsByDateRange(sh, testFrom, testTo);
+      Logger.log(` -> ${recs.length} records returned from "${sh.getName()}"`);
+      recs.slice(0, 5).forEach((r, idx) => {
+        // safe column access in case header names differ
+        const cid = r['Collection ID'] || r['collection id'] || r['ID'] || '(no Collection ID)';
+        const loan = r['Loan Number'] || r['Loan'] || r['loan number'] || '(no Loan Number)';
+        const date = r['Collection Date'] || r['collection date'] || '(no Collection Date)';
+        const amt = r['Amount Paid'] || r['Amount'] || r['amount paid'] || '(no Amount Paid)';
+        Logger.log(`   sample ${idx+1}: Collection ID=${cid}, Loan=${loan}, Date=${date}, AmountPaid=${amt}`);
+      });
+      results[key] = { found: true, sheetName: sh.getName(), count: recs.length, sample: recs.slice(0,5) };
+    } catch (e) {
+      Logger.log(`ERROR fetching from sheet ${sh.getName()}: ${e}`);
+      results[key] = { found: true, sheetName: sh.getName(), error: String(e) };
+    }
+  }
+
+  Logger.log('=== debugFetchSchedules SUMMARY ===');
+  for (const k in results) {
+    Logger.log(`${k}: ${JSON.stringify(results[k])}`);
+  }
+
+  Logger.log('=== debugFetchSchedules END ===');
+  return results;
+}
+function setSpreadsheetIdForScript() {
+  var id = '1UKlhFxgU67_SyjMYNLGNcA21cgWONMiNXRwhzrcs4T4'; // <-- only the ID
+  PropertiesService.getScriptProperties().setProperty('SPREADSHEET_ID', id);
+  Logger.log('SPREADSHEET_ID set to: ' + id);
+}
+
+function testOpenById() {
+  var id = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+  Logger.log('Using SPREADSHEET_ID=' + id);
+  try {
+    var ss = SpreadsheetApp.openById(id);
+    var tabs = ss.getSheets().map(s => s.getName());
+    Logger.log('Opened spreadsheet successfully.');
+    Logger.log('Available tabs: ' + tabs.join(', '));
+  } catch (e) {
+    Logger.log('ERROR openById: ' + e.toString());
+    if (!id) {
+      Logger.log('No SPREADSHEET_ID found in script properties.');
+    } else {
+      Logger.log('Check the ID and that your Google account has access to the spreadsheet.');
+    }
+  }
+}
+
+
+
+
+
+/**
+ * Parse date string in DD-MM-YYYY format to Date object
+ * @param {string} dateStr - Date string in DD-MM-YYYY format
+ * @returns {Date|null} Date object or null if parsing fails
+ */
+function parseDateDDMMYYYY(dateStr) {
+  if (!dateStr) return null;
+  
+  try {
+    const str = String(dateStr).trim();
+    
+    // Handle DD-MM-YYYY format
+    const parts = str.split('-');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // Months are 0-indexed
+      const year = parseInt(parts[2], 10);
+      
+      if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+        const date = new Date(year, month, day);
+        // Set time to midnight for accurate comparison
+        date.setHours(0, 0, 0, 0);
+        return date;
+      }
+    }
+    
+    return null;
+  } catch (err) {
+    Logger.log('Error parsing date: ' + err.message);
+    return null;
+  }
+}
+function printLedgerHeaders() {
+  try {
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    var headers = ledgerSheet.getRange(1, 1, 1, ledgerSheet.getLastColumn()).getValues()[0];
+    
+    Logger.log('=== LEDGER SHEET HEADERS ===');
+    Logger.log('Total columns: ' + headers.length);
+    Logger.log('');
+    
+    for (var i = 0; i < headers.length; i++) {
+      var colLetter = getColumnLetter(i + 1);
+      Logger.log('Column ' + colLetter + ' (' + (i + 1) + '): "' + headers[i] + '"');
+    }
+    
+    Logger.log('');
+    Logger.log('=== LOOKING FOR SURETY FIELDS ===');
+    
+    for (var i = 0; i < headers.length; i++) {
+      var header = String(headers[i]).toLowerCase();
+      if (header.indexOf('surety') !== -1 || 
+          header.indexOf('s/o') !== -1 || 
+          header.indexOf('w/o') !== -1 ||
+          header.indexOf('mobile') !== -1 ||
+          header.indexOf('address') !== -1) {
+        var colLetter = getColumnLetter(i + 1);
+        Logger.log('  Column ' + colLetter + ' (' + (i + 1) + '): "' + headers[i] + '"');
+      }
+    }
+    
+  } catch (err) {
+    Logger.log('Error: ' + err.message);
+  }
+}
+
+function getColumnLetter(columnNumber) {
+  var columnLetter = '';
+  while (columnNumber > 0) {
+    var remainder = (columnNumber - 1) % 26;
+    columnLetter = String.fromCharCode(65 + remainder) + columnLetter;
+    columnNumber = Math.floor((columnNumber - 1) / 26);
+  }
+  return columnLetter;
+}
+
+function verifySuretyColumns() {
+  try {
+    Logger.log('=== VERIFYING SURETY COLUMN NAMES ===');
+    
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    var headers = ledgerSheet.getRange(1, 1, 1, ledgerSheet.getLastColumn()).getValues()[0];
+    
+    var expectedColumns = {
+      30: 'Surety S/O W/O',
+      31: 'Surety Mobile',
+      32: 'Surety Address'
+    };
+    
+    var allCorrect = true;
+    
+    Object.keys(expectedColumns).forEach(function(index) {
+      var actualName = headers[index];
+      var expectedName = expectedColumns[index];
+      var colLetter = getColumnLetter(parseInt(index) + 1);
+      
+      if (actualName === expectedName) {
+        Logger.log('✓ Column ' + colLetter + ' (' + (parseInt(index) + 1) + '): "' + actualName + '" - CORRECT');
+      } else {
+        Logger.log('✗ Column ' + colLetter + ' (' + (parseInt(index) + 1) + '): Expected "' + expectedName + '", Found "' + actualName + '" - INCORRECT');
+        allCorrect = false;
+      }
+    });
+    
+    if (allCorrect) {
+      Logger.log('');
+      Logger.log('✓✓✓ ALL SURETY COLUMNS ARE CORRECTLY NAMED ✓✓✓');
+    } else {
+      Logger.log('');
+      Logger.log('✗✗✗ SOME COLUMNS NEED TO BE RENAMED ✗✗✗');
+    }
+    
+    return { status: 'success', allCorrect: allCorrect };
+    
+  } catch (err) {
+    Logger.log('Error: ' + err.message);
+    return { status: 'error', message: err.message };
+  }
+}
+function testClosedCollections() {
+  try {
+    // Use the existing helper function
+    var sheet = getSheetByNameOrThrow('Closed_emi_collection');
+    
+    Logger.log('Sheet found: ' + sheet.getName());
+    
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    
+    Logger.log('Total rows: ' + data.length);
+    Logger.log('Headers: ' + headers.join(', '));
+    
+    var dateColIndex = headers.indexOf('Collection Date');
+    Logger.log('Date column index: ' + dateColIndex);
+    
+    if (dateColIndex === -1) {
+      Logger.log('ERROR: Collection Date column not found!');
+      Logger.log('Available headers: ' + headers.join(', '));
+      return;
+    }
+    
+    // Check a few rows around row 107
+    Logger.log('\n=== Checking rows 105-110 ===');
+    for (var i = 104; i <= 109 && i < data.length; i++) {
+      var rowNum = i + 1; // Row number in sheet (1-indexed)
+      var dateValue = data[i][dateColIndex];
+      var loanNum = data[i][headers.indexOf('Loan Number')];
+      
+      Logger.log('Row ' + rowNum + ': Date=' + dateValue + ', Loan=' + loanNum);
+      
+      if (dateValue) {
+  // Use the robust parser that handles Date objects, dd/mm/yyyy, dd-mm-yyyy, ISO etc.
+  var parsed = parseDateSafe(dateValue);
+  Logger.log('  -> Parsed (parseDateSafe): ' + parsed);
+}
+    }
+    
+    // Now test the actual function
+    Logger.log('\n=== Testing getCollectionsByDateRange ===');
+    var results = getCollectionsByDateRange(sheet, '14-10-2025', '14-10-2025');
+    Logger.log('Records found: ' + results.length);
+    
+    if (results.length > 0) {
+      Logger.log('First record: ' + JSON.stringify(results[0]));
+    }
+    
+    Logger.log('\nTest complete!');
+    
+  } catch (err) {
+    Logger.log('ERROR: ' + err.message);
+    Logger.log('Stack: ' + err.stack);
+  }
+}
+function verifyCompleteSystem() {
+  Logger.log('=================================');
+  Logger.log('COMPLETE SYSTEM VERIFICATION');
+  Logger.log('=================================');
+  Logger.log('');
+  
+  Logger.log('1. Verifying column names...');
+  var columnCheck = verifySuretyColumns();
+  Logger.log('');
+  
+  Logger.log('2. Testing data retrieval...');
+  try {
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    var rows = getAllRowsAsObjects(ledgerSheet);
+    
+    if (rows.length > 0) {
+      var testRow = rows[0];
+      Logger.log('✓ Successfully retrieved ' + rows.length + ' rows');
+      Logger.log('✓ Sample row columns: ' + Object.keys(testRow).length);
+      
+      var hasNewColumns = testRow.hasOwnProperty('Surety S/O W/O') ||
+                          testRow.hasOwnProperty('Surety Mobile') ||
+                          testRow.hasOwnProperty('Surety Address');
+      
+      if (hasNewColumns) {
+        Logger.log('✓ New surety column names detected in data');
+      } else {
+        Logger.log('✗ New surety column names NOT found in data');
+        Logger.log('  Available columns with "Surety": ');
+        Object.keys(testRow).forEach(function(key) {
+          if (key.toLowerCase().indexOf('surety') !== -1) {
+            Logger.log('    - ' + key);
+          }
+        });
+      }
+    }
+  } catch (err) {
+    Logger.log('✗ Data retrieval error: ' + err.message);
+  }
+  Logger.log('');
+  
+  Logger.log('=================================');
+  Logger.log('VERIFICATION COMPLETE');
+  Logger.log('=================================');
+}
+
+function searchRecord(params) {
+  try {
+    var searchType = params.searchType || 'loanNo';
+    var searchValue = String(params.searchValue || '').trim();
+    
+    if (!searchValue) {
+      return { status: 'error', message: 'Search value required' };
+    }
+    
+    var rows = getAllRowsAsObjects(getSheetByNameOrThrow(SHEET_LEDGER));
+    var matches = [];
+    
+    rows.forEach(function(row) {
+      var found = false;
+      
+      switch(searchType) {
+        case 'loanNo':
+          found = String(row['Loan No'] || row['Loan Number'] || '').trim().toLowerCase() === searchValue.toLowerCase();
+          break;
+        case 'mobile':
+          found = String(row['Mobile No'] || '').trim().indexOf(searchValue) !== -1;
+          break;
+        case 'customerName':
+          found = String(row['Name of the customer'] || '').toLowerCase().indexOf(searchValue.toLowerCase()) !== -1;
+          break;
+        case 'regNo':
+          found = String(row['Registration Number'] || '').toLowerCase().indexOf(searchValue.toLowerCase()) !== -1;
+          break;
+      }
+      
+      if (found) {
+        matches.push(row);
+      }
+    });
+    
+    if (matches.length === 0) {
+      return { status: 'not_found', message: 'No records found' };
+    }
+    
+    if (searchType === 'loanNo' && matches.length === 1) {
+      return { status: 'success', data: matches[0] };
+    } else {
+      return { status: 'success', data: matches };
+    }
+    
+  } catch (err) {
+    return { status: 'error', message: err.message };
+  }
+}
+
+function updateRecord(payload) {
+  try {
+    var loanNo = payload.loanNo;
+    var updates = payload.updates;
+    
+    if (!loanNo || !updates) {
+      return { status: 'error', message: 'loanNo and updates required' };
+    }
+    
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    var rows = getAllRowsAsObjects(ledgerSheet);
+    
+    var targetRow = rows.find(function(row) {
+      return String(row['Loan No'] || row['Loan Number'] || '').trim() === String(loanNo).trim();
+    });
+    
+    if (!targetRow) {
+      return { status: 'error', message: 'Loan record not found' };
+    }
+    
+    var rowIndex = targetRow.__rowNum;
+    
+    if (Array.isArray(updates)) {
+      var extendedUpdates = new Array(36).fill('');
+      for (var i = 0; i < updates.length && i < 36; i++) {
+        extendedUpdates[i] = updates[i] !== undefined ? updates[i] : '';
+      }
+      ledgerSheet.getRange(rowIndex, 1, 1, 36).setValues([extendedUpdates]);
+    } else {
+      var headers = ledgerSheet.getRange(1, 1, 1, ledgerSheet.getLastColumn()).getValues()[0];
+      var headerMap = {};
+      for (var i = 0; i < headers.length; i++) {
+        if (headers[i]) {
+          headerMap[headers[i]] = i + 1;
+        }
+      }
+      
+      var newStatus = updates['Loan Status'];
+      var newClosureDate = updates['Loan Closure Date'];
+      
+      if (newStatus === 'Closed') {
+        var emiValidation = validateEMICompletionForClosure(loanNo);
+        if (!emiValidation.canClose && emiValidation.pendingCount > 0 && !payload.forceClosure) {
+          return { 
+            status: 'warning', 
+            message: 'Loan has ' + emiValidation.pendingCount + ' pending EMIs. Consider completing all EMIs before closure.',
+            pendingEMIs: emiValidation.pendingEMIs,
+            allowClosure: true
+          };
+        }
+        
+        if (!newClosureDate) {
+          updates['Loan Closure Date'] = formatDateForSheet(new Date());
+        }
+      }
+      
+      if (newStatus && newStatus !== 'Closed' && newStatus !== 'Settlement') {
+        updates['Loan Closure Date'] = '';
+      }
+      
+      Object.keys(updates).forEach(function(fieldName) {
+        var columnIndex = headerMap[fieldName];
+        if (columnIndex && updates[fieldName] !== undefined) {
+          ledgerSheet.getRange(rowIndex, columnIndex).setValue(updates[fieldName]);
+        }
+      });
+    }
+
+    // ========== ADD THIS CODE BEFORE THE FINAL RETURN ==========
+// Check if EMI schedule recalculation is requested
+if (payload.recalculateEMISchedule === true && payload.emiCalculationData) {
+  Logger.log('EMI Schedule recalculation requested for loan: ' + loanNo);
+  var recalcResult = recalculateEMIScheduleForLoan(loanNo, payload.emiCalculationData);
+  
+  if (recalcResult.status === 'error') {
+    return {
+      status: 'partial_success',
+      message: 'Ledger updated but EMI schedule failed: ' + recalcResult.message
+    };
+  }
+  
+  Logger.log('EMI Schedule recalculated: ' + recalcResult.recordsCreated + ' records');
+}
+// ========== END NEW CODE ==========
+    
+    return { 
+      status: 'success', 
+      message: 'Record updated successfully',
+      updatedFields: {
+        loanStatus: updates['Loan Status'] || updates[35],
+        closureDate: updates['Loan Closure Date'] || updates[34]
+      }
+    };
+    
+  } catch (err) {
+    return { status: 'error', message: err.message };
+  }
+}
+
+/**
+ * Recalculate EMI schedule for a loan
+ * Deletes old entries and creates new ones with updated dates/amounts
+ * UPDATED: Outstanding Balance now starts from Ledger Column R (Total Loan Due)
+ */
+function recalculateEMIScheduleForLoan(loanNo, emiData) {
+  try {
+    Logger.log('=== Recalculate EMI Schedule for Loan ' + loanNo + ' ===');
+    
+    var scheduleSheet = getSheetByNameOrThrow(SHEET_CALC);
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    
+    // Get customer name and total loan due from Ledger
+    var ledgerRows = getAllRowsAsObjects(ledgerSheet);
+    var loanRecord = ledgerRows.find(function(row) {
+      return String(row['Loan No'] || row['Loan Number'] || '').trim() === String(loanNo).trim();
+    });
+    
+    if (!loanRecord) {
+      return { status: 'error', message: 'Loan not found' };
+    }
+    
+    var customerName = loanRecord['Name of the customer'] || '';
+    
+    // ✅ GET TOTAL LOAN DUE FROM LEDGER COLUMN R
+    // This is the "Total Amt (Loan Amt + Intt)" field
+    var totalLoanDue = parseFloat(loanRecord['Total Amt (Loan Amt + Intt)'] || 
+                                   loanRecord['Total amt to be paid'] ||
+                                   loanRecord['Total Loan Due'] || 
+                                   0);
+    
+    Logger.log('Total Loan Due from Ledger: ' + totalLoanDue);
+    
+    // Delete all old EMI entries for this loan (bottom to top)
+    var scheduleRows = getAllRowsAsObjects(scheduleSheet);
+    var deleteCount = 0;
+    
+    for (var i = scheduleRows.length - 1; i >= 0; i--) {
+      if (String(scheduleRows[i]['Loan Number'] || '').trim() === String(loanNo).trim()) {
+        scheduleSheet.deleteRow(scheduleRows[i].__rowNum);
+        deleteCount++;
+      }
+    }
+    
+    Logger.log('Deleted ' + deleteCount + ' old EMI records');
+    
+    // Parse EMI data from frontend
+    var startDate = new Date(emiData.installmentStartDate);
+    var installments = parseInt(emiData.numberOfInstallments) || 0;
+    var emiPerMonth = parseFloat(emiData.emiPerMonth) || 0;
+    var interestPerMonth = parseFloat(emiData.interestPerMonth) || 0;
+    var principalPerMonth = parseFloat(emiData.principalPerMonth) || 0;
+    
+    // Generate new EMI schedule
+    var newRows = [];
+    
+    // ✅ START OUTSTANDING BALANCE FROM TOTAL LOAN DUE (Column R from Ledger)
+    var outstandingBalance = totalLoanDue;
+    
+    Logger.log('Starting Outstanding Balance: ' + outstandingBalance);
+    
+    for (var emiNumber = 1; emiNumber <= installments; emiNumber++) {
+      // Calculate due date
+      var dueDate = new Date(startDate);
+      dueDate.setMonth(dueDate.getMonth() + (emiNumber - 1));
+      
+      // Format as DD-MM-YYYY
+      var day = String(dueDate.getDate()).padStart(2, '0');
+      var month = String(dueDate.getMonth() + 1).padStart(2, '0');
+      var year = dueDate.getFullYear();
+      var formattedDate = day + '-' + month + '-' + year;
+      
+     // Create row (starting from column B)
+newRows.push([
+  loanNo,                      // B: Loan Number
+  customerName,                // C: Customer Name
+  emiNumber,                   // D: EMI Number
+  formattedDate,               // E: Due Date
+  emiPerMonth,                 // F: EMI Amount (PER MONTH)
+  principalPerMonth,           // G: Principal Component (PER MONTH)
+  interestPerMonth,            // H: Interest Component (PER MONTH)
+  outstandingBalance,          // I: Outstanding Balance (BEFORE this payment) ✅
+  'Pending',                   // J: Status
+  0,                           // K: Amount Paid
+  ''                           // L: Payment Date
+]);
+
+// Update outstanding for next iteration (subtract AFTER adding to array)
+outstandingBalance = outstandingBalance - emiPerMonth;
+if (outstandingBalance < 0) outstandingBalance = 0;
+    }
+    
+    // Insert new rows
+    if (newRows.length > 0) {
+      var lastRow = scheduleSheet.getLastRow();
+      scheduleSheet.getRange(lastRow + 1, 2, newRows.length, 11).setValues(newRows);
+      Logger.log('Created ' + newRows.length + ' new EMI records');
+      Logger.log('Final Outstanding Balance: ' + outstandingBalance);
+    }
+    
+    return {
+      status: 'success',
+      message: 'EMI schedule recalculated',
+      recordsDeleted: deleteCount,
+      recordsCreated: newRows.length
+    };
+    
+  } catch (err) {
+    Logger.log('ERROR: ' + err.message);
+    Logger.log('Stack: ' + err.stack);
+    return { status: 'error', message: err.message };
+  }
+}
+
+function updateLoanFields(payload) {
+  try {
+    var loanNo = payload.loanNo;
+    var fields = payload.fields;
+    
+    if (!loanNo || !fields) {
+      return { status: 'error', message: 'loanNo and fields required' };
+    }
+    
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    
+    var headers = ledgerSheet.getRange(1, 1, 1, ledgerSheet.getLastColumn()).getValues()[0];
+    var headerMap = {};
+    for (var i = 0; i < headers.length; i++) {
+      if (headers[i]) {
+        headerMap[headers[i]] = i + 1;
+      }
+    }
+    
+    var rows = getAllRowsAsObjects(ledgerSheet);
+    var targetRow = rows.find(function(row) {
+      return String(row['Loan No'] || row['Loan Number'] || '').trim() === String(loanNo).trim();
+    });
+    
+    if (!targetRow) {
+      return { status: 'error', message: 'Loan not found' };
+    }
+    
+    var rowIndex = targetRow.__rowNum;
+    
+    if (fields['Loan Status'] === 'Closed') {
+      var emiValidation = validateEMICompletionForClosure(loanNo);
+      if (!emiValidation.canClose && emiValidation.pendingCount > 0) {
+        fields['Loan Closure Date'] = fields['Loan Closure Date'] || formatDateForSheet(new Date());
+      }
+    }
+    
+    Object.keys(fields).forEach(function(fieldName) {
+      var columnIndex = headerMap[fieldName];
+      if (columnIndex) {
+        ledgerSheet.getRange(rowIndex, columnIndex).setValue(fields[fieldName] || '');
+      }
+    });
+    
+    return { 
+      status: 'success', 
+      message: 'Loan updated successfully',
+      updatedFields: fields
+    };
+    
+  } catch (err) {
+    return { status: 'error', message: err.message };
+  }
+}
+
+function updateLoanRecord(payload) {
+  try {
+    var loanNo = payload.loanNo;
+    var updates = payload.updates;
+    
+    if (!loanNo || !updates) {
+      return { status: 'error', message: 'loanNo and updates required' };
+    }
+    
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    
+    var headers = ledgerSheet.getRange(1, 1, 1, ledgerSheet.getLastColumn()).getValues()[0];
+    var headerMap = {};
+    for (var i = 0; i < headers.length; i++) {
+      if (headers[i]) {
+        headerMap[headers[i]] = i + 1;
+      }
+    }
+    
+    var rows = getAllRowsAsObjects(ledgerSheet);
+    var targetRow = rows.find(function(row) {
+      return String(row['Loan No'] || row['Loan Number'] || '').trim() === String(loanNo).trim();
+    });
+    
+    if (!targetRow) {
+      return { status: 'error', message: 'Loan record not found' };
+    }
+    
+    var rowIndex = targetRow.__rowNum;
+    
+    var newStatus = updates['Loan Status'];
+    var newClosureDate = updates['Loan Closure Date'];
+    
+    if (newStatus === 'Closed') {
+      var emiValidation = validateEMICompletionForClosure(loanNo);
+      if (!emiValidation.canClose && emiValidation.pendingCount > 0 && !payload.forceClosure) {
+        return { 
+          status: 'warning', 
+          message: 'Loan has ' + emiValidation.pendingCount + ' pending EMIs. Consider completing all EMIs before closure.',
+          pendingEMIs: emiValidation.pendingEMIs,
+          allowClosure: true
+        };
+      }
+      
+      if (!newClosureDate) {
+        updates['Loan Closure Date'] = formatDateForSheet(new Date());
+      }
+    }
+    
+    if (newStatus && newStatus !== 'Closed' && newStatus !== 'Settlement') {
+      updates['Loan Closure Date'] = '';
+    }
+    
+    Object.keys(updates).forEach(function(fieldName) {
+      var columnIndex = headerMap[fieldName];
+      if (columnIndex && updates[fieldName] !== undefined) {
+        ledgerSheet.getRange(rowIndex, columnIndex).setValue(updates[fieldName]);
+      }
+    });
+    
+    return { 
+      status: 'success', 
+      message: 'Loan record updated successfully',
+      updatedFields: {
+        loanStatus: newStatus,
+        closureDate: updates['Loan Closure Date']
+      }
+    };
+    
+  } catch (err) {
+    return { status: 'error', message: err.message };
+  }
+}
+
+function validateEMICompletionForClosure(loanNo) {
+  try {
+    var calcSheet = getSheetByNameOrThrow(SHEET_CALC);
+    var scheduleRows = getAllRowsAsObjects(calcSheet);
+    
+    var loanEMIs = scheduleRows.filter(function(row) {
+      return String(row['Loan Number'] || '').trim() === String(loanNo).trim();
+    });
+    
+    // Use isNotPaid helper
+    var pendingEMIs = loanEMIs.filter(function(emi) {
+      return isNotPaid(emi['Status']);
+    });
+    
+    return {
+      canClose: pendingEMIs.length === 0,
+      totalEMIs: loanEMIs.length,
+      pendingCount: pendingEMIs.length,
+      pendingEMIs: pendingEMIs.map(function(emi) {
+        return {
+          emiNumber: emi['EMI Number'],
+          status: emi['Status'],
+          outstandingAmount: emi['Outstanding Balance']
+        };
+      })
+    };
+    
+  } catch (err) {
+    return {
+      canClose: true,
+      error: err.message
+    };
+  }
+}
+
+function getLoanClosureSummary(loanNo) {
+  try {
+    if (!loanNo) {
+      return { status: 'error', message: 'Loan number required' };
+    }
+    
+    var loanDetails = lookupCustomerByLoan(loanNo);
+    if (loanDetails.status !== 'success') {
+      return loanDetails;
+    }
+    
+    var scheduleData = getEMISchedule(loanNo);
+    if (scheduleData.status !== 'success') {
+      return scheduleData;
+    }
+    
+    var collectionsData = searchEMIRecords({ loanNo: loanNo });
+    if (collectionsData.status !== 'success') {
+      return collectionsData;
+    }
+    
+    var loan = loanDetails.data;
+    var schedule = scheduleData.schedule;
+    var collections = collectionsData.records;
+    
+    var totalEMIAmount = Number(loan['Total amt to be paid'] || 0);
+    var totalCollected = collections.reduce(function(sum, collection) {
+      return sum + (Number(collection['Amount Paid'] || collection['Amoiunt Paid'] || 0));
+    }, 0);
+    
+    // Use isPaidStatus and isNotPaid helpers
+    var paidEMIs = schedule.filter(function(emi) {
+      return isPaidStatus(emi['Status']);
+    }).length;
+    
+    var pendingEMIs = schedule.filter(function(emi) {
+      return isNotPaid(emi['Status']);
+    });
+    
+    var remainingBalance = pendingEMIs.reduce(function(sum, emi) {
+      return sum + (Number(emi['Outstanding Balance'] || 0));
+    }, 0);
+    
+    return {
+      status: 'success',
+      summary: {
+        loanNumber: loanNo,
+        customerName: loan['Name of the customer'],
+        originalAmount: Number(loan['Loan Amount'] || 0),
+        totalAmountToPay: totalEMIAmount,
+        totalCollected: totalCollected,
+        remainingBalance: remainingBalance,
+        totalEMIs: schedule.length,
+        paidEMIs: paidEMIs,
+        pendingEMIs: pendingEMIs.length,
+        completionPercentage: schedule.length > 0 ? Math.round((paidEMIs / schedule.length) * 100) : 0,
+        canClose: pendingEMIs.length === 0,
+        loanStatus: loan['Loan Status'] || 'Active',
+        closureDate: loan['Loan Closure Date'] || null
+      }
+    };
+    
+  } catch (err) {
+    return { status: 'error', message: err.message };
+  }
+}
+
+function importHistoricalCollections() {
+  try {
+    var historicalSS = SpreadsheetApp.openById(HISTORICAL_SHEET_ID);
+    var transformedSheet = historicalSS.getSheetByName('Transformed_Output');
+    
+    if (!transformedSheet) {
+      return { status: 'error', message: 'Transformed_Output sheet not found in historical import file' };
+    }
+    
+    var lastRow = transformedSheet.getLastRow();
+    if (lastRow < 2) {
+      return { status: 'error', message: 'No data found in Transformed_Output' };
+    }
+    
+    var historicalData = transformedSheet.getRange(2, 1, lastRow - 1, 8).getValues();
+    
+    var collSheet = getSheetByNameOrThrow(SHEET_COLLECTION);
+    var existingCollections = getAllRowsAsObjects(collSheet);
+    var existingIds = {};
+    existingCollections.forEach(function(row) {
+      var id = String(row['Collection ID'] || '').trim();
+      if (id) existingIds[id] = true;
+    });
+    
+    var imported = 0;
+    var skipped = 0;
+    var errors = 0;
+    var errorDetails = [];
+    
+    for (var i = 0; i < historicalData.length; i++) {
+      try {
+        var row = historicalData[i];
+        
+        var collectionId = String(row[0] || '').trim();
+        var loanNumber = String(row[1] || '').trim();
+        var customerName = String(row[2] || '').trim();
+        var collectionDate = row[3];
+        var emiAmount = Number(row[4]) || 0;
+        var amountPaid = Number(row[5]) || 0;
+        var emiMonth = String(row[6] || '').trim();
+        var status = String(row[7] || 'Paid').trim();
+        
+        if (!collectionId || !loanNumber || !emiMonth) {
+          skipped++;
+          continue;
+        }
+        
+        if (existingIds[collectionId]) {
+          skipped++;
+          Logger.log('Skipping duplicate Collection ID: ' + collectionId);
+          continue;
+        }
+        
+        var record = {
+          'Collection ID': collectionId,
+          'Loan Number': loanNumber,
+          'Customer Name': customerName,
+          'Collection Date': collectionDate,
+          'EMI Amount': emiAmount,
+          'Amount Paid': amountPaid,
+          'EMI Month': emiMonth,
+          'Status': status
+        };
+        
+        var result = recordCollection(record);
+        
+        if (result.status === 'success') {
+          imported++;
+          existingIds[collectionId] = true;
+        } else {
+          errors++;
+          errorDetails.push('Row ' + (i + 2) + ': ' + (result.message || 'Unknown error'));
+        }
+        
+        if ((i + 1) % 100 === 0) {
+          Logger.log('Progress: ' + (i + 1) + '/' + historicalData.length + ' rows processed');
+        }
+        
+      } catch (err) {
+        errors++;
+        errorDetails.push('Row ' + (i + 2) + ': ' + err.message);
+        Logger.log('Error processing row ' + (i + 2) + ': ' + err.message);
+      }
+    }
+    
+    var summary = {
+      status: 'success',
+      message: 'Import completed',
+      totalRows: historicalData.length,
+      imported: imported,
+      skipped: skipped,
+      errors: errors,
+      errorDetails: errors > 0 ? errorDetails.slice(0, 10) : []
+    };
+    
+    Logger.log('Import Summary: ' + JSON.stringify(summary));
+    
+    var alertMsg = 'Historical Collections Import Complete!\n\n' +
+                   'Total Records: ' + historicalData.length + '\n' +
+                   'Successfully Imported: ' + imported + '\n' +
+                   'Skipped (duplicates/invalid): ' + skipped + '\n' +
+                   'Errors: ' + errors;
+    
+    if (errors > 0) {
+      alertMsg += '\n\nFirst error: ' + (errorDetails[0] || 'See logs for details');
+    }
+    
+    SpreadsheetApp.getUi().alert(alertMsg);
+    
+    return summary;
+    
+  } catch (err) {
+    Logger.log('Import failed: ' + err.message);
+    SpreadsheetApp.getUi().alert('Import Error: ' + err.message);
+    return { status: 'error', message: err.message };
+  }
+}
+
+function previewHistoricalImport() {
+  try {
+    var historicalSS = SpreadsheetApp.openById(HISTORICAL_SHEET_ID);
+    var transformedSheet = historicalSS.getSheetByName('Transformed_Output');
+    
+    if (!transformedSheet) {
+      Logger.log('ERROR: Transformed_Output sheet not found');
+      return { status: 'error', message: 'Transformed_Output sheet not found' };
+    }
+    
+    var lastRow = transformedSheet.getLastRow();
+    var previewCount = Math.min(10, lastRow - 1);
+    
+    if (previewCount < 1) {
+      Logger.log('No data to preview');
+      return { status: 'error', message: 'No data to preview' };
+    }
+    
+    var previewData = transformedSheet.getRange(2, 1, previewCount, 8).getValues();
+    
+    Logger.log('=== PREVIEW OF FIRST ' + previewCount + ' RECORDS ===');
+    
+    for (var i = 0; i < previewData.length; i++) {
+      var row = previewData[i];
+      Logger.log((i + 1) + '. Collection ID: ' + row[0] + 
+                 ', Loan: ' + row[1] + 
+                 ', Customer: ' + row[2] + 
+                 ', EMI#: ' + row[6] + 
+                 ', Amount: ' + row[5]);
+    }
+    
+    Logger.log('\n=== TOTAL ROWS TO IMPORT: ' + (lastRow - 1) + ' ===');
+    
+    return { 
+      status: 'success', 
+      totalRows: lastRow - 1,
+      preview: previewData.slice(0, 10)
+    };
+    
+  } catch (err) {
+    Logger.log('Preview Error: ' + err.message);
+    return { status: 'error', message: err.message };
+  }
+}
+
+function checkForDuplicates() {
+  try {
+    var historicalSS = SpreadsheetApp.openById(HISTORICAL_SHEET_ID);
+    var transformedSheet = historicalSS.getSheetByName('Transformed_Output');
+    
+    if (!transformedSheet) {
+      Logger.log('ERROR: Transformed_Output sheet not found');
+      return { status: 'error', message: 'Transformed_Output sheet not found' };
+    }
+    
+    var historicalData = transformedSheet.getRange(2, 1, transformedSheet.getLastRow() - 1, 1).getValues();
+    var historicalIds = historicalData.map(function(row) { return String(row[0]).trim(); }).filter(function(id) { return id; });
+    
+    var collSheet = getSheetByNameOrThrow(SHEET_COLLECTION);
+    var existingCollections = getAllRowsAsObjects(collSheet);
+    var existingIds = existingCollections.map(function(row) { 
+      return String(row['Collection ID'] || '').trim(); 
+    });
+    
+    var duplicates = historicalIds.filter(function(id) {
+      return id && existingIds.indexOf(id) !== -1;
+    });
+    
+    Logger.log('=== DUPLICATE CHECK RESULTS ===');
+    Logger.log('Total historical records: ' + historicalIds.length);
+    Logger.log('Existing collection records: ' + existingIds.length);
+    Logger.log('Duplicates found: ' + duplicates.length);
+    
+    if (duplicates.length === 0) {
+      Logger.log('✓ NO DUPLICATES - All ' + historicalIds.length + ' historical records are new and can be safely imported.');
+    } else {
+      Logger.log('⚠ DUPLICATES FOUND - These ' + duplicates.length + ' records already exist and will be skipped:');
+      duplicates.slice(0, 20).forEach(function(id, idx) {
+        Logger.log('  ' + (idx + 1) + '. ' + id);
+      });
+      if (duplicates.length > 20) {
+        Logger.log('  ... and ' + (duplicates.length - 20) + ' more');
+      }
+      Logger.log('Will import: ' + (historicalIds.length - duplicates.length) + ' new records');
+    }
+    
+    return {
+      status: 'success',
+      totalHistorical: historicalIds.length,
+      totalExisting: existingIds.length,
+      duplicates: duplicates.length,
+      willImport: historicalIds.length - duplicates.length
+    };
+    
+  } catch (err) {
+    Logger.log('Check Error: ' + err.message);
+    return { status: 'error', message: err.message };
+  }
+}
+
+function deleteTestCollection(collectionId) {
+  try {
+    if (!collectionId) {
+      SpreadsheetApp.getUi().alert('Please provide Collection ID to delete');
+      return;
+    }
+    
+    var collSheet = getSheetByNameOrThrow(SHEET_COLLECTION);
+    var rows = getAllRowsAsObjects(collSheet);
+    
+    var idx = rows.findIndex(function(r) {
+      return String(r['Collection ID'] || '').trim() === String(collectionId).trim();
+    });
+    
+    if (idx === -1) {
+      SpreadsheetApp.getUi().alert('Collection ID not found: ' + collectionId);
+      return;
+    }
+    
+    collSheet.deleteRow(idx + 2);
+    
+    SpreadsheetApp.getUi().alert('Deleted collection: ' + collectionId);
+    
+  } catch (err) {
+    SpreadsheetApp.getUi().alert('Delete Error: ' + err.message);
+  }
+}
+
+function getOverdueWithCustomerDetails() {
+  try {
+    var calcSheet = getSheetByNameOrThrow(SHEET_CALC);
+    var ledgerSheet = getSheetByNameOrThrow(SHEET_LEDGER);
+    
+    var scheduleRows = getAllRowsAsObjects(calcSheet);
+    var ledgerRows = getAllRowsAsObjects(ledgerSheet);
+    
+    var ledgerMap = {};
+    ledgerRows.forEach(function(loan) {
+      var loanNo = String(loan['Loan No'] || loan['Loan Number'] || '').trim();
+      if (loanNo) {
+        ledgerMap[loanNo] = {
+          mobileNo: loan['Mobile No'] || '',
+          customerName: loan['Name of the customer'] || ''
+        };
+      }
+    });
+    
+    var enhancedSchedule = scheduleRows.map(function(emi) {
+      var loanNo = String(emi['Loan Number'] || '').trim();
+      var ledgerData = ledgerMap[loanNo] || {};
+      
+      return {
+        'Schedule ID': emi['Schedule ID'],
+        'Loan Number': emi['Loan Number'],
+        'Customer Name': emi['Customer Name'],
+        'Mobile No': ledgerData.mobileNo || '',
+        'EMI Number': emi['EMI Number'],
+        'Due Date': emi['Due Date'],
+        'EMI Amount': emi['EMI Amount'],
+        'Principal Component': emi['Principal Component'],
+        'Interest Component': emi['Interest Component'],
+        'Outstanding Balance': emi['Outstanding Balance'],
+        'Status': emi['Status'],
+        'Amount Paid': emi['Amount Paid'],
+        'Payment Date': emi['Payment Date']
+      };
+    });
+    
+    return { status: 'success', schedule: enhancedSchedule };
+    
+  } catch (err) {
+    return { status: 'error', message: err.message };
+  }
+}
+
+function getAllLedger() {
+  try {
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const ledgerSheet = ss.getSheetByName(SHEET_LEDGER);
+    
+    if (!ledgerSheet) {
+      return { status: 'error', message: 'Ledger sheet not found' };
+    }
+    
+    const data = ledgerSheet.getDataRange().getValues();
+    const headers = data[0];
+    
+    const ledgerData = [];
+    for (let i = 1; i < data.length; i++) {
+      const row = {};
+      for (let j = 0; j < headers.length; j++) {
+        row[headers[j]] = data[i][j];
+      }
+      if (row['Loan No']) {
+        ledgerData.push(row);
+      }
+    }
+    
+    return { status: 'success', data: ledgerData };
+    
+  } catch (error) {
+    return { status: 'error', message: error.toString() };
+  }
+}
+
+function listAllSheets() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheets = ss.getSheets();
+  let names = sheets.map(s => '"' + s.getName() + '"').join('\n');
+  SpreadsheetApp.getUi().alert('All sheet names:\n\n' + names);
+}
+
+function updateLastEmiDates() {
+  const SPREADSHEET_ID = '1UKlhFxgU67_SyjMYNLGNcA21cgWONMiNXRwhzrcs4T4';
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  
+  const ledgerSheet = ss.getSheetByName('Ledger');
+  
+  if (!ledgerSheet) {
+    return { status: 'error', message: 'Ledger sheet not found' };
+  }
+  
+  const ledgerData = ledgerSheet.getDataRange().getValues();
+  const ledgerHeaders = ledgerData[0];
+  
+  const loanDateCol = ledgerHeaders.indexOf('Date of loan');
+  const installmentsCol = ledgerHeaders.indexOf('No of monthly instalments');
+  const lastEmiDateCol = ledgerHeaders.indexOf('Last Emi date');
+  
+  if (loanDateCol === -1 || installmentsCol === -1 || lastEmiDateCol === -1) {
+    return { status: 'error', message: 'Required columns not found' };
+  }
+  
+  let updateCount = 0;
+  
+  for (let i = 1; i < ledgerData.length; i++) {
+    const loanDate = ledgerData[i][loanDateCol];
+    const installments = parseInt(ledgerData[i][installmentsCol]);
+    
+    if (!loanDate || !installments || installments <= 0) continue;
+    
+    let startDate;
+    
+    if (loanDate instanceof Date) {
+      startDate = new Date(loanDate);
+    } else if (typeof loanDate === 'string') {
+      if (loanDate.includes('-') && loanDate.split('-')[0].length <= 2) {
+        const parts = loanDate.split('-');
+        startDate = new Date(parts[2], parts[1] - 1, parts[0]);
+      } else {
+        startDate = new Date(loanDate);
+      }
+    } else {
+      startDate = new Date(loanDate);
+    }
+    
+    if (isNaN(startDate.getTime())) continue;
+    
+    const lastEmiDate = new Date(startDate);
+    lastEmiDate.setMonth(lastEmiDate.getMonth() + installments);
+    
+    const day = String(lastEmiDate.getDate()).padStart(2, '0');
+    const month = String(lastEmiDate.getMonth() + 1).padStart(2, '0');
+    const year = lastEmiDate.getFullYear();
+    const formattedDate = `${day}-${month}-${year}`;
+    
+    ledgerSheet.getRange(i + 1, lastEmiDateCol + 1).setValue(formattedDate);
+    updateCount++;
+  }
+  
+  return { status: 'success', message: `Updated ${updateCount} Last EMI dates successfully!` };
+}
+
+/* ==========================================================================
+   STATUS TESTING FUNCTIONS
+   ========================================================================== */
+
+function testStatusNormalization() {
+  Logger.log('=== Testing Status Normalization ===');
+  
+  var testCases = [
+    { input: 'Paid', expectedPaid: true, expectedPending: false, standard: 'Paid' },
+    { input: 'paid', expectedPaid: true, expectedPending: false, standard: 'Paid' },
+    { input: 'PAID', expectedPaid: true, expectedPending: false, standard: 'Paid' },
+    { input: '  Paid  ', expectedPaid: true, expectedPending: false, standard: 'Paid' },
+    { input: 'Partial', expectedPaid: false, expectedPending: false, standard: 'Partial' },
+    { input: 'partial', expectedPaid: false, expectedPending: false, standard: 'Partial' },
+    { input: 'Pending', expectedPaid: false, expectedPending: true, standard: 'Pending' },
+    { input: 'pending', expectedPaid: false, expectedPending: true, standard: 'Pending' },
+    { input: '', expectedPaid: false, expectedPending: true, standard: 'Pending' },
+    { input: null, expectedPaid: false, expectedPending: true, standard: 'Pending' },
+    { input: undefined, expectedPaid: false, expectedPending: true, standard: 'Pending' }
+  ];
+  
+  var passed = 0;
+  var failed = 0;
+  
+  testCases.forEach(function(test, index) {
+    var testNum = index + 1;
+    var inputDisplay = test.input === null ? 'null' : 
+                       test.input === undefined ? 'undefined' : 
+                       '"' + test.input + '"';
+    
+    try {
+      var isPaid = isPaidStatus(test.input);
+      var isPending = isPendingStatus(test.input);
+      var standard = getStandardStatus(test.input);
+      
+      if (isPaid === test.expectedPaid && 
+          isPending === test.expectedPending && 
+          standard === test.standard) {
+        Logger.log('✓ Test ' + testNum + ' PASSED: ' + inputDisplay);
+        passed++;
+      } else {
+        Logger.log('✗ Test ' + testNum + ' FAILED: ' + inputDisplay);
+        Logger.log('  Expected: Paid=' + test.expectedPaid + ', Pending=' + test.expectedPending + ', Standard="' + test.standard + '"');
+        Logger.log('  Got:      Paid=' + isPaid + ', Pending=' + isPending + ', Standard="' + standard + '"');
+        failed++;
+      }
+    } catch (error) {
+      Logger.log('✗ Test ' + testNum + ' ERROR: ' + inputDisplay + ' - ' + error.message);
+      failed++;
+    }
+  });
+  
+  Logger.log('');
+  Logger.log('=== Results ===');
+  Logger.log('Passed: ' + passed + '/' + testCases.length);
+  Logger.log('Failed: ' + failed + '/' + testCases.length);
+  
+  return { passed: passed, failed: failed, total: testCases.length };
+}
+
+function testCalculateStatus() {
+  Logger.log('=== Testing calculateStatus ===');
+  
+  var testCases = [
+    { paid: 1000, emi: 1000, expected: 'Paid' },
+    { paid: 1500, emi: 1000, expected: 'Paid' },
+    { paid: 500, emi: 1000, expected: 'Partial' },
+    { paid: 0, emi: 1000, expected: 'Pending' },
+    { paid: 0, emi: 0, expected: 'Pending' },
+    { paid: null, emi: 1000, expected: 'Pending' },
+    { paid: 1000, emi: null, expected: 'Pending' }
+  ];
+  
+  var passed = 0;
+  var failed = 0;
+  
+  testCases.forEach(function(test, index) {
+    var result = calculateStatus(test.paid, test.emi);
+    if (result === test.expected) {
+      Logger.log('✓ Test ' + (index + 1) + ' PASSED: paid=' + test.paid + ', emi=' + test.emi + ' → "' + result + '"');
+      passed++;
+    } else {
+      Logger.log('✗ Test ' + (index + 1) + ' FAILED: paid=' + test.paid + ', emi=' + test.emi);
+      Logger.log('  Expected: "' + test.expected + '", Got: "' + result + '"');
+      failed++;
+    }
+  });
+  
+  Logger.log('');
+  Logger.log('Passed: ' + passed + '/' + testCases.length);
+  Logger.log('Failed: ' + failed + '/' + testCases.length);
+  
+  return { passed: passed, failed: failed, total: testCases.length };
+}
+
+function auditScheduleStatusValues() {
+  Logger.log('=== Auditing emi_schedule Status Values ===');
+  
+  try {
+    var calcSheet = getSheetByNameOrThrow(SHEET_CALC);
+    var rows = getAllRowsAsObjects(calcSheet);
+    
+    var statusCounts = {};
+    var nonStandard = [];
+    
+    rows.forEach(function(row, index) {
+      var status = row['Status'];
+      var statusStr = String(status || '').trim();
+      
+      if (statusStr) {
+        statusCounts[statusStr] = (statusCounts[statusStr] || 0) + 1;
+        
+        if (statusStr !== 'Paid' && statusStr !== 'Partial' && statusStr !== 'Pending') {
+          nonStandard.push({
+            row: index + 2,
+            loanNo: row['Loan Number'],
+            emiNo: row['EMI Number'],
+            status: statusStr
+          });
+        }
+      }
+    });
+    
+    Logger.log('Status Value Distribution:');
+    Object.keys(statusCounts).forEach(function(status) {
+      var marker = (status === 'Paid' || status === 'Partial' || status === 'Pending') ? '✓' : '⚠';
+      Logger.log('  ' + marker + ' "' + status + '": ' + statusCounts[status] + ' records');
+    });
+    
+    if (nonStandard.length > 0) {
+      Logger.log('');
+      Logger.log('⚠ Found ' + nonStandard.length + ' non-standard status values:');
+      nonStandard.slice(0, 10).forEach(function(item) {
+        Logger.log('  Row ' + item.row + ': Loan ' + item.loanNo + ', EMI ' + item.emiNo + ' → "' + item.status + '"');
+      });
+      if (nonStandard.length > 10) {
+        Logger.log('  ... and ' + (nonStandard.length - 10) + ' more');
+      }
+    } else {
+      Logger.log('');
+      Logger.log('✓ All status values are standardized!');
+    }
+    
+    return {
+      status: 'success',
+      totalRecords: rows.length,
+      statusCounts: statusCounts,
+      nonStandardCount: nonStandard.length,
+      nonStandard: nonStandard
+    };
+    
+  } catch (error) {
+    Logger.log('Error: ' + error.message);
+    return { status: 'error', message: error.message };
+  }
+}
+
+function fixNonStandardStatusValues() {
+  Logger.log('=== Fixing Non-Standard Status Values ===');
+  
+  try {
+    var calcSheet = getSheetByNameOrThrow(SHEET_CALC);
+    var rows = getAllRowsAsObjects(calcSheet);
+    var headerMap = getHeaderIndexMap(calcSheet);
+    var statusCol = headerMap['Status'];
+    
+    if (!statusCol) {
+      return { status: 'error', message: 'Status column not found' };
+    }
+    
+    var fixed = 0;
+    
+    rows.forEach(function(row) {
+      var currentStatus = row['Status'];
+      var standardStatus = getStandardStatus(currentStatus);
+      
+      if (String(currentStatus).trim() !== standardStatus) {
+        calcSheet.getRange(row.__rowNum, statusCol).setValue(standardStatus);
+        fixed++;
+      }
+    });
+    
+    Logger.log('Fixed ' + fixed + ' status values to standard format');
+    
+    return {
+      status: 'success',
+      message: 'Fixed ' + fixed + ' status values',
+      fixed: fixed
+    };
+    
+  } catch (error) {
+    Logger.log('Error: ' + error.message);
+    return { status: 'error', message: error.message };
+  }
+}

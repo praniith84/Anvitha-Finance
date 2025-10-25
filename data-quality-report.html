@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Quality Report - Anvitha Finance</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      padding-left: 100px;
+    }
+
+    /* ===== SMALL ICON SIDEBAR ===== */
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 80px;
+      height: 100vh;
+      background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 0;
+      gap: 15px;
+      box-shadow: 2px 0 15px rgba(0,0,0,0.2);
+      z-index: 1000;
+    }
+    
+    .sidebar-logo {
+      width: 50px;
+      height: 50px;
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: white;
+      font-weight: bold;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
+    }
+    
+    .sidebar-btn {
+      width: 55px;
+      height: 55px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      position: relative;
+      color: white;
+    }
+    
+    .sidebar-btn:hover {
+      transform: translateX(5px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar-btn.home {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .sidebar-btn.export {
+      background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+    
+    .sidebar-btn.print {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    
+    .sidebar-tooltip {
+      position: absolute;
+      left: 70px;
+      background: rgba(0,0,0,0.9);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 1001;
+    }
+    
+    .sidebar-btn:hover .sidebar-tooltip {
+      opacity: 1;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 25px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .load-btn-container {
+      text-align: center;
+      padding: 20px;
+      background: #f8f9fa;
+      border-bottom: 2px solid #e9ecef;
+    }
+
+    .load-btn {
+      padding: 12px 30px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .load-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .controls {
+      padding: 20px 30px;
+      background: #f8f9fa;
+      border-bottom: 2px solid #e9ecef;
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      color: white;
+    }
+
+    .btn-warning {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      padding: 20px 30px;
+      background: #f8f9fa;
+    }
+
+    .summary-card {
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+      border-left: 4px solid;
+      text-align: center;
+    }
+
+    .summary-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+    }
+
+    .summary-card.total {
+      border-left-color: #3498db;
+    }
+
+    .summary-card.vehicle {
+      border-left-color: #e74c3c;
+    }
+
+    .summary-card.insurance {
+      border-left-color: #f39c12;
+    }
+
+    .summary-card.surety {
+      border-left-color: #9b59b6;
+    }
+
+    .summary-card .icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .summary-card .count {
+      font-size: 32px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .summary-card.total .count {
+      color: #3498db;
+    }
+
+    .summary-card.vehicle .count {
+      color: #e74c3c;
+    }
+
+    .summary-card.insurance .count {
+      color: #f39c12;
+    }
+
+    .summary-card.surety .count {
+      color: #9b59b6;
+    }
+
+    .summary-card .label {
+      font-size: 12px;
+      color: #7f8c8d;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    .category-section {
+      margin-bottom: 30px;
+    }
+
+    .category-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 15px;
+      padding: 12px 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .category-header:hover {
+      transform: translateX(5px);
+    }
+
+    .category-header .icon {
+      font-size: 24px;
+    }
+
+    .category-header h3 {
+      flex: 1;
+      font-size: 18px;
+    }
+
+    .category-header .badge {
+      background: rgba(255,255,255,0.3);
+      padding: 4px 12px;
+      border-radius: 15px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .category-header .toggle {
+      font-size: 20px;
+      transition: transform 0.3s ease;
+    }
+
+    .category-header.collapsed .toggle {
+      transform: rotate(-90deg);
+    }
+
+    .table-container {
+      overflow-x: auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 15px;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 800px;
+    }
+
+    .data-table thead {
+      background: #2c3e50;
+      color: white;
+    }
+
+    .data-table th {
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .data-table td {
+      padding: 12px;
+      border-bottom: 1px solid #ecf0f1;
+      font-size: 14px;
+    }
+
+    .data-table tbody tr {
+      transition: all 0.2s ease;
+    }
+
+    .data-table tbody tr:hover {
+      background: #f8f9fa;
+    }
+
+    .issue-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .issue-tag {
+      display: inline-block;
+      background: #e9ecef;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #495057;
+    }
+
+    .action-link {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+
+    .action-link:hover {
+      color: #764ba2;
+      text-decoration: underline;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #95a5a6;
+    }
+
+    .empty-state .icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+
+    .empty-state h3 {
+      font-size: 24px;
+      margin-bottom: 10px;
+      color: #7f8c8d;
+    }
+
+    .loading .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 400px;
+    }
+
+    .toast {
+      background: white;
+      padding: 16px 20px;
+      border-radius: 12px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      animation: slideIn 0.3s ease;
+      border-left: 4px solid;
+      min-width: 300px;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .toast.success { border-left-color: #27ae60; }
+    .toast.error { border-left-color: #e74c3c; }
+    .toast.warning { border-left-color: #f39c12; }
+    .toast.info { border-left-color: #3498db; }
+
+    .toast .toast-icon {
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .toast.success .toast-icon { color: #27ae60; }
+    .toast.error .toast-icon { color: #e74c3c; }
+    .toast.warning .toast-icon { color: #f39c12; }
+    .toast.info .toast-icon { color: #3498db; }
+
+    .toast .toast-message {
+      flex: 1;
+      font-size: 14px;
+      color: #2c3e50;
+      line-height: 1.4;
+    }
+
+    .toast .toast-close {
+      background: none;
+      border: none;
+      font-size: 20px;
+      color: #95a5a6;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .toast .toast-close:hover {
+      color: #7f8c8d;
+    }
+
+    .category-content {
+      max-height: 2000px;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .category-content.collapsed {
+      max-height: 0;
+    }
+
+    .edit-form-row {
+      background: #f8f9fa !important;
+      border-top: 3px solid #667eea;
+      border-bottom: 3px solid #667eea;
+    }
+
+    .edit-form-row input,
+    .edit-form-row select,
+    .edit-form-row textarea {
+      width: 100%;
+      transition: border-color 0.2s ease;
+    }
+
+    .edit-form-row input:focus,
+    .edit-form-row select:focus,
+    .edit-form-row textarea:focus {
+      outline: none;
+      border-color: #667eea !important;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+        padding-left: 0;
+      }
+      .sidebar {
+        display: none !important;
+      }
+      .container {
+        box-shadow: none;
+      }
+      .controls, .btn, .action-link, .load-btn-container {
+        display: none !important;
+      }
+      .category-content {
+        max-height: none !important;
+      }
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding-left: 20px;
+        padding-right: 20px;
+      }
+      .sidebar {
+        width: 60px;
+      }
+      .sidebar-btn {
+        width: 45px;
+        height: 45px;
+        font-size: 18px;
+      }
+      .summary-cards {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .controls {
+        flex-direction: column;
+      }
+      .toast-container {
+        left: 20px;
+        right: 20px;
+        max-width: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Small Icon Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-logo">💰</div>
+    <button class="sidebar-btn home" onclick="window.location.href='index.html'">
+      <span>🏠</span>
+      <div class="sidebar-tooltip">Home</div>
+    </button>
+    <button class="sidebar-btn export" onclick="exportReport()">
+      <span>📥</span>
+      <div class="sidebar-tooltip">Export</div>
+    </button>
+    <button class="sidebar-btn print" onclick="window.print()">
+      <span>🖨️</span>
+      <div class="sidebar-tooltip">Print</div>
+    </button>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <div class="container">
+    <div class="header">
+      <h1><span>📊</span><span>Data Quality Report</span></h1>
+      <div style="font-size: 14px; opacity: 0.9;">Track incomplete ledger details</div>
+    </div>
+
+    <div class="load-btn-container" id="loadBtnContainer">
+      <button class="load-btn" onclick="loadReport()">📥 Load Data</button>
+    </div>
+
+    <div class="controls" style="display:none;" id="controlsSection">
+      <button class="btn btn-success" onclick="exportReport()"><span>📥</span><span>Export to Excel</span></button>
+      <button class="btn btn-warning" onclick="window.print()"><span>🖨️</span><span>Print Report</span></button>
+    </div>
+
+    <div class="summary-cards" style="display:none;" id="summaryCards">
+      <div class="summary-card total">
+        <div class="icon">📊</div>
+        <div class="count" id="totalIssuesCount">0</div>
+        <div class="label">Total Accounts<br>with Issues</div>
+      </div>
+      <div class="summary-card vehicle">
+        <div class="icon">🚗</div>
+        <div class="count" id="vehicleIssuesCount">0</div>
+        <div class="label">Vehicle/Registration<br>Issues</div>
+      </div>
+      <div class="summary-card insurance">
+        <div class="icon">🛡️</div>
+        <div class="count" id="insuranceIssuesCount">0</div>
+        <div class="label">Insurance<br>Issues</div>
+      </div>
+      <div class="summary-card surety">
+        <div class="icon">🤝</div>
+        <div class="count" id="suretyIssuesCount">0</div>
+        <div class="label">Surety Holder<br>Issues</div>
+      </div>
+    </div>
+
+    <div class="content" id="reportContent">
+      <div class="empty-state">
+        <div class="icon">📊</div>
+        <h3>Ready to Analyze</h3>
+        <p>Click "Load Data" to start analyzing your ledger</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzPBMML2B8a6dMXMFL78dBIEeSRGG8yEhk2xn9BBEO_kx1kfan_Re73qOsIKAsjkQ8/exec';
+    const SECRET = 'ANVITHA_SUPER_SECRET_2025';
+    
+    let allIssues = [];
+    let allRecordsData = {};
+
+    function showToast(message, type = 'info', duration = 4000) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+      toast.innerHTML = `
+        <div class="toast-icon">${icons[type]}</div>
+        <div class="toast-message">${message}</div>
+        <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+      `;
+      container.appendChild(toast);
+      if (duration > 0) {
+        setTimeout(() => {
+          toast.style.animation = 'slideIn 0.3s ease reverse';
+          setTimeout(() => toast.remove(), 300);
+        }, duration);
+      }
+    }
+
+    async function loadReport() {
+      try {
+        showToast('Loading ledger data...', 'info');
+        const url = `${SCRIPT_URL}?action=searchCustomers&secret=${SECRET}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Server returned ${response.status}`);
+        const data = await response.json();
+        if (data.status === 'success' && data.data) {
+          analyzeData(data.data);
+          showToast(`✅ Analyzed ${data.data.length} records!`, 'success');
+          document.getElementById('loadBtnContainer').style.display = 'none';
+          document.getElementById('controlsSection').style.display = 'flex';
+          document.getElementById('summaryCards').style.display = 'grid';
+        } else {
+          throw new Error(data.message || 'Unknown error');
+        }
+      } catch (error) {
+        showToast(`❌ ${error.message}`, 'error', 8000);
+        document.getElementById('reportContent').innerHTML = `
+          <div class="empty-state">
+            <div class="icon">❌</div>
+            <h3>Error Loading Data</h3>
+            <p style="color: #e74c3c;">${error.message}</p>
+          </div>
+        `;
+      }
+    }
+
+    function findIssues(record) {
+      const issues = { vehicle: [], insurance: [], surety: [], document: [] };
+      const regNo = (record['Reg No'] || '').toString().trim();
+      if (!regNo || regNo === '' || regNo.toUpperCase().startsWith('FR')) {
+        issues.vehicle.push(regNo && regNo.toUpperCase().startsWith('FR') ? 'Reg No (FR)' : 'Reg No');
+      }
+      if (!(record['Make of vehicle'] || '').toString().trim()) issues.vehicle.push('Vehicle Make');
+      if (!(record['Year of manufacturing'] || '').toString().trim()) issues.vehicle.push('Mfg Year');
+      if (!(record['Chassis No'] || '').toString().trim()) issues.vehicle.push('Chassis No');
+      if (!(record['Engine No'] || '').toString().trim()) issues.vehicle.push('Engine No');
+      if (!(record['Name of Ins Co'] || '').toString().trim()) issues.insurance.push('Ins Company');
+      if (!(record['Ins valid upto'] || '').toString().trim()) issues.insurance.push('Ins Valid Upto');
+      if (!(record['Name of the surety holder'] || '').toString().trim()) issues.surety.push('Surety Name');
+      if (!(record['Relation of surety'] || '').toString().trim()) issues.surety.push('Surety Relation');
+      if (!(record['Surety Mobile No'] || '').toString().trim()) issues.surety.push('Surety Mobile');
+      if (!(record['Surety Address'] || '').toString().trim()) issues.surety.push('Surety Address');
+      return issues;
+    }
+
+    function analyzeData(records) {
+      allIssues = [];
+      allRecordsData = {};
+      let vehicleCount = 0, insuranceCount = 0, suretyCount = 0;
+      
+      records.forEach(record => {
+        const issues = findIssues(record);
+        const hasIssues = issues.vehicle.length > 0 || issues.insurance.length > 0 || issues.surety.length > 0 || issues.document.length > 0;
+        
+        if (hasIssues) {
+          const loanNo = (record['Loan No'] || '').toString().trim();
+          allIssues.push({
+            loanNo: loanNo,
+            customerName: record['Name of the customer'] || '',
+            mobile: record['Mobile No'] || '',
+            issues: issues
+          });
+          allRecordsData[loanNo] = record;
+          
+          if (issues.vehicle.length > 0) vehicleCount++;
+          if (issues.insurance.length > 0) insuranceCount++;
+          if (issues.surety.length > 0) suretyCount++;
+        }
+      });
+      
+      const totalCount = allIssues.length;
+      document.getElementById('totalIssuesCount').textContent = totalCount;
+      document.getElementById('vehicleIssuesCount').textContent = vehicleCount;
+      document.getElementById('insuranceIssuesCount').textContent = insuranceCount;
+      document.getElementById('suretyIssuesCount').textContent = suretyCount;
+      renderReport();
+    }
+
+    function renderReport() {
+      const content = document.getElementById('reportContent');
+      if (allIssues.length === 0) {
+        content.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">✅</div>
+            <h3>Perfect! No Issues Found</h3>
+            <p>All records are complete.</p>
+          </div>
+        `;
+        return;
+      }
+      
+      const vehicleIssues = allIssues.filter(item => item.issues.vehicle.length > 0);
+      const insuranceIssues = allIssues.filter(item => item.issues.insurance.length > 0);
+      const suretyIssues = allIssues.filter(item => item.issues.surety.length > 0);
+      
+      let html = '';
+      if (vehicleIssues.length > 0) html += renderCategory('🚗', 'Vehicle & Registration', vehicleIssues.length, vehicleIssues, 'vehicle');
+      if (insuranceIssues.length > 0) html += renderCategory('🛡️', 'Insurance Details', insuranceIssues.length, insuranceIssues, 'insurance');
+      if (suretyIssues.length > 0) html += renderCategory('🤝', 'Surety Holder', suretyIssues.length, suretyIssues, 'surety');
+      content.innerHTML = html;
+    }
+
+    function renderCategory(icon, title, count, items, type) {
+      return `
+        <div class="category-section">
+          <div class="category-header" onclick="toggleCategory(this)">
+            <div class="icon">${icon}</div>
+            <h3>${title}</h3>
+            <div class="badge">${count} Account${count !== 1 ? 's' : ''}</div>
+            <div class="toggle">▼</div>
+          </div>
+          <div class="category-content">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Loan No</th>
+                    <th>Customer Name</th>
+                    <th>Mobile</th>
+                    <th>Missing Fields</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${items.map(item => `
+                    <tr>
+                      <td>${item.loanNo}</td>
+                      <td>${item.customerName}</td>
+                      <td>${item.mobile}</td>
+                      <td>
+                        <div class="issue-tags">
+                          ${item.issues[type].map(field => `<span class="issue-tag">${field}</span>`).join('')}
+                        </div>
+                      </td>
+                      <td><a href="#" class="action-link" onclick="editRecord('${item.loanNo}'); return false;">Edit</a></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function toggleCategory(header) {
+      const content = header.nextElementSibling;
+      header.classList.toggle('collapsed');
+      content.classList.toggle('collapsed');
+    }
+
+    function editRecord(loanNo) {
+      alert('Edit functionality: Open emi_collection_modifier.html?loan=' + loanNo);
+    }
+
+    async function exportReport() {
+      try {
+        showToast('Preparing export...', 'info');
+        const exportData = [];
+        allIssues.forEach(item => {
+          const allFields = [...item.issues.vehicle, ...item.issues.insurance, ...item.issues.surety, ...item.issues.document];
+          exportData.push({
+            'Loan No': item.loanNo,
+            'Customer Name': item.customerName,
+            'Mobile': item.mobile,
+            'Missing Fields': allFields.join(', ')
+          });
+        });
+        
+        if (exportData.length === 0) {
+          showToast('No issues to export!', 'warning');
+          return;
+        }
+        
+        const headers = Object.keys(exportData[0]);
+        let csv = headers.join(',') + '\n';
+        exportData.forEach(row => {
+          const values = headers.map(h => `"${(row[h] || '').toString().replace(/"/g, '""')}"`);
+          csv += values.join(',') + '\n';
+        });
+        
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `data-quality-report-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        showToast('✅ Exported successfully!', 'success');
+      } catch (error) {
+        showToast(`❌ Export failed: ${error.message}`, 'error');
+      }
+    }
+  </script>
+</body>
+</html>
