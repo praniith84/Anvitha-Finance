@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Overdue EMI Report - Anvitha Finance</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: 'Arial', 'Calibri', sans-serif; 
+      background: #fff;
+      padding: 20px;
+    }
+    .no-print {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .no-print button {
+      padding: 12px 30px;
+      margin: 0 10px;
+      background: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 1em;
+    }
+    .no-print button:hover { background: #2980b9; }
+    .no-print button.back { background: #95a5a6; }
+    .no-print button.back:hover { background: #7f8c8d; }
+    .no-print button.sort { background: #e67e22; }
+    .no-print button.sort:hover { background: #d35400; }
+    .no-print button.active { background: #27ae60; }
+    
+    .report-header {
+      text-align: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #000;
+    }
+    .report-header h1 {
+      font-size: 1.8em;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+    }
+    .report-header .date {
+      font-size: 0.9em;
+      color: #666;
+    }
+    
+    .excel-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 20px;
+      table-layout: fixed;
+    }
+    .excel-table th,
+    .excel-table td {
+      border: 1px solid #000;
+      padding: 8px 4px;
+      text-align: center;
+      vertical-align: middle;
+    }
+    .excel-table .col-sno { width: 2%; }
+    .excel-table .col-loan { width: 4%; }
+    .excel-table .col-name { width: 13%; }
+    .excel-table .col-mobile { width: 6%; }
+    .excel-table .col-emi-no { width: 1.5%; }
+    .excel-table .col-amount { width: 5%; }
+    .excel-table .col-receipt { width: 4%; }
+    .excel-table .col-date { width: 4%; }
+    .excel-table .col-due-date { width: 4.5%; }
+    .excel-table th {
+      font-weight: bold;
+      background: #d9d9d9;
+    }
+    .excel-table .header-row-1 th {
+      background: #ffd966;
+      font-size: 13px;
+      font-weight: bold;
+      padding: 10px 4px;
+    }
+    .excel-table .header-row-2 th {
+      background: #ffd966;
+      font-size: 11px;
+      font-weight: bold;
+      padding: 7px 3px;
+    }
+    .excel-table .month-jul {
+      background: #fff2cc !important;
+    }
+    .excel-table .month-aug {
+      background: #fce4d6 !important;
+    }
+    .excel-table .month-sep {
+      background: #e2efda !important;
+    }
+    .excel-table .total-col {
+      background: #b4c7e7 !important;
+      font-weight: bold;
+    }
+    .excel-table .left-align {
+      text-align: left;
+      padding-left: 6px;
+      font-weight: bold;
+    }
+    .excel-table .number-cell {
+      text-align: right;
+      padding-right: 6px;
+    }
+    .excel-table .sno-cell {
+      font-weight: bold;
+    }
+    .excel-table tbody tr:hover {
+      background: #f0f0f0;
+    }
+    .emi-list {
+      font-size: 13px;
+      text-align: center;
+      line-height: 1.4;
+      font-weight: 600;
+    }
+    .due-date-cell {
+      font-size: 13px;
+      color: #c00;
+      font-weight: 600;
+    }
+    .amount-cell {
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .total-amount {
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+    }
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+
+    
+    /* ===== TOAST NOTIFICATION STYLES - CENTERED ===== */
+    .toast-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        display: none;
+        animation: fadeIn 0.3s ease-out;
+    }
+    
+    .toast-backdrop.show {
+        display: block;
+    }
+    
+    .toast-container-center {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 10000;
+        max-width: 500px;
+        width: 90%;
+    }
+    
+    .toast {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        margin-bottom: 10px;
+        padding: 20px 24px;
+        display: none;
+        animation: slideInScale 0.3s ease-out;
+        position: relative;
+        border-left: 5px solid;
+    }
+    
+    .toast.show {
+        display: block;
+    }
+    
+    .toast.success {
+        border-left-color: #28a745;
+        background: #d4edda;
+    }
+    
+    .toast.error {
+        border-left-color: #dc3545;
+        background: #f8d7da;
+    }
+    
+    .toast.warning {
+        border-left-color: #ffc107;
+        background: #fff3cd;
+    }
+    
+    .toast.loading {
+        border-left-color: #3498db;
+        background: #e3f2fd;
+    }
+    
+    .toast-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .toast-icon {
+        font-size: 24px;
+        flex-shrink: 0;
+    }
+    
+    .toast-message {
+        flex-grow: 1;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    
+    .toast.success .toast-message {
+        color: #155724;
+        font-weight: 600;
+    }
+    
+    .toast.error .toast-message {
+        color: #721c24;
+        font-weight: 600;
+    }
+    
+    .toast.warning .toast-message {
+        color: #856404;
+        font-weight: 600;
+    }
+    
+    .toast.loading .toast-message {
+        color: #1565c0;
+        font-weight: 600;
+    }
+    
+    .toast-close {
+        background: none;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        color: #999;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    
+    .toast-close:hover {
+        color: #333;
+    }
+    
+    .toast-spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #3498db;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        animation: spinToast 1s linear infinite;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes slideInScale {
+        from {
+            transform: scale(0.7);
+            opacity: 0;
+        }
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOut {
+        from {
+            transform: scale(1);
+            opacity: 1;
+        }
+        to {
+            transform: scale(0.7);
+            opacity: 0;
+        }
+    }
+    
+    .toast.hiding {
+        animation: slideOut 0.3s ease-out forwards;
+    }
+    
+    @keyframes spinToast {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    /* ===== END TOAST STYLES ===== */
+
+    @media print {
+      @page {
+        size: A4 landscape;
+        margin: 8mm;
+      }
+      body { 
+        padding: 0;
+        margin: 0;
+      }
+      .no-print { display: none !important; }
+      .report-header {
+        margin-bottom: 8px;
+        padding-bottom: 6px;
+      }
+      .report-header h1 {
+        font-size: 13pt;
+        margin-bottom: 2px;
+      }
+      .report-header .date {
+        font-size: 8pt;
+      }
+      .excel-table { 
+        font-size: 6pt;
+        width: 100%;
+      }
+      .excel-table th { 
+        padding: 2px 1px;
+        font-size: 6pt;
+      }
+      .excel-table td { 
+        padding: 2px 1px;
+        font-size: 6pt;
+      }
+      .excel-table .header-row-1 th {
+        font-size: 7pt;
+        padding: 3px 1px;
+      }
+      .excel-table .header-row-2 th {
+        font-size: 5.5pt;
+        padding: 2px 1px;
+      }
+      .emi-list {
+        font-size: 5.5pt;
+        line-height: 1.2;
+      }
+      .due-date-cell {
+        font-size: 5.5pt;
+      }
+      .amount-cell {
+        font-size: 5.5pt;
+      }
+      .total-amount {
+        font-size: 5.5pt;
+      }
+      .col-sno { width: 2%; }
+      .col-loan { width: 4%; }
+      .col-name { width: 13%; }
+      .col-mobile { width: 6%; }
+      .col-emi-no { width: 1.5%; }
+      .col-amount { width: 5%; }
+      .col-receipt { width: 4%; }
+      .col-date { width: 4%; }
+      .col-due-date { width: 4.5%; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Toast Backdrop -->
+  <div class="toast-backdrop" id="toastBackdrop"></div>
+  
+  <!-- Toast Container -->
+  <div class="toast-container-center" id="toastContainer"></div>
+
+  <div class="no-print">
+    <button onclick="window.location.href='home_page.html'" style="background:#2c3e50">Home</button>
+    <button onclick="window.print()">Print (Landscape A4)</button>
+    <button onclick="exportToExcel()">Export to Excel</button>
+    <button onclick="exportToPDF()">Export to PDF</button>
+    <button onclick="window.location.href='overdue_analysis.html'" class="back">Back to Analysis</button>
+    <br><br>
+    <button id="sortByLoanBtn" onclick="sortByLoan()" class="sort active">Sort by Loan Number</button>
+    <button id="sortByDateBtn" onclick="sortByDueDate()" class="sort">Sort by Due Date</button>
+  </div>
+
+  <div class="report-header">
+    <h1>ANVITHA FINANCE - EMI REPORT (ALL EMIs)</h1>
+    <div class="date">Month: <span id="reportDate"></span></div>
+    <div style="margin-top:15px">
+      <button id="loadDataBtn" onclick="loadData()" style="padding:12px 30px;background:#27ae60;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:1em">
+        Load Data
+      </button>
+    </div>
+  </div>
+
+  <div id="loading" class="loading" style="display:none">
+    <div class="spinner"></div>
+    <p style="margin-top:15px">Loading overdue data...</p>
+  </div>
+
+  <div id="tableContainer" style="display:none">
+    <table class="excel-table" id="overdueTable">
+      <thead>
+        <tr class="header-row-1">
+          <th rowspan="2" class="col-sno">S.No</th>
+          <th rowspan="2" class="col-loan">Loan No.</th>
+          <th rowspan="2" class="col-name">Customer Name</th>
+          <th rowspan="2" class="col-mobile">Mobile</th>
+          <th colspan="4" class="month-jul" id="month3Header">Jul-25</th>
+          <th colspan="4" class="month-aug" id="month2Header">Aug-25</th>
+          <th colspan="5" class="month-sep" id="month1Header">Sep-25</th>
+          <th rowspan="2" class="total-col">Total</th>
+        </tr>
+        <tr class="header-row-2">
+          <th class="month-jul col-emi-no">Emi No</th>
+          <th class="month-jul col-amount">Amount</th>
+          <th class="month-jul col-receipt">Receipt</th>
+          <th class="month-jul col-date">Date</th>
+          <th class="month-aug col-emi-no">Emi No</th>
+          <th class="month-aug col-amount">Amount</th>
+          <th class="month-aug col-receipt">Receipt</th>
+          <th class="month-aug col-date">Date</th>
+          <th class="month-sep col-emi-no">Emi No</th>
+          <th class="month-sep col-due-date">Due Date</th>
+          <th class="month-sep col-amount">Amount</th>
+          <th class="month-sep col-receipt">Receipt</th>
+          <th class="month-sep col-date">Date</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzPBMML2B8a6dMXMFL78dBIEeSRGG8yEhk2xn9BBEO_kx1kfan_Re73qOsIKAsjkQ8/exec';
+    const SECRET = 'ANVITHA_SUPER_SECRET_2025';
+
+    const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    let allScheduleData = [];
+    let allCustomerData = [];
+    let processedLoanData = {};
+    let currentSortMode = 'loan';
+
+    // ===== TOAST NOTIFICATION SYSTEM =====
+    let currentLoadingToast = null;
+
+    function showToast(message, type = 'success', duration = 5000) {
+        const container = document.getElementById('toastContainer');
+        const backdrop = document.getElementById('toastBackdrop');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        let icon = '✓';
+        if (type === 'error') icon = '✕';
+        if (type === 'warning') icon = '⚠';
+        if (type === 'loading') icon = '<div class="toast-spinner"></div>';
+        
+        toast.innerHTML = `
+            <div class="toast-content">
+                <div class="toast-icon">${icon}</div>
+                <div class="toast-message">${message}</div>
+                ${type !== 'loading' ? '<button class="toast-close" onclick="closeToast(this)">×</button>' : ''}
+            </div>
+        `;
+        
+        container.appendChild(toast);
+        backdrop.classList.add('show');
+        setTimeout(() => toast.classList.add('show'), 10);
+        
+        if (type !== 'loading' && duration > 0) {
+            setTimeout(() => hideToast(toast), duration);
+        }
+        
+        return toast;
+    }
+
+    function hideToast(toast) {
+        const backdrop = document.getElementById('toastBackdrop');
+        const container = document.getElementById('toastContainer');
+        
+        toast.classList.add('hiding');
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+            if (container.children.length === 0) {
+                backdrop.classList.remove('show');
+            }
+        }, 300);
+    }
+
+    function closeToast(button) {
+        const toast = button.closest('.toast');
+        hideToast(toast);
+    }
+
+    function hideLoadingToasts() {
+        const loadingToasts = document.querySelectorAll('.toast.loading');
+        loadingToasts.forEach(toast => hideToast(toast));
+        if (currentLoadingToast) {
+            hideToast(currentLoadingToast);
+            currentLoadingToast = null;
+        }
+    }
+
+
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const today = new Date();
+      document.getElementById('reportDate').textContent = formatDate(today);
+    });
+
+    async function loadData() {
+      const loadBtn = document.getElementById('loadDataBtn');
+      loadBtn.disabled = true;
+      loadBtn.textContent = 'Loading...';
+      loadBtn.style.background = '#95a5a6';
+      
+      try {
+        document.getElementById('loading').style.display = 'none';
+        currentLoadingToast = showToast('📊 Loading overdue EMI data...', 'loading', 0);
+        document.getElementById('tableContainer').style.display = 'none';
+
+        const customerUrl = SCRIPT_URL + '?action=searchCustomers&secret=' + encodeURIComponent(SECRET);
+        const customerRes = await fetch(customerUrl);
+        const customerData = await customerRes.json();
+
+        if (customerData.status === 'success' && customerData.data) {
+          allCustomerData = customerData.data;
+          console.log('Loaded customer data:', allCustomerData.length, 'customers');
+        } else {
+          throw new Error('Failed to load customer data');
+        }
+
+        const scheduleUrl = SCRIPT_URL + '?action=getAllEMISchedule&secret=' + encodeURIComponent(SECRET);
+        const scheduleRes = await fetch(scheduleUrl);
+        const scheduleData = await scheduleRes.json();
+
+        if (scheduleData.status === 'success' && scheduleData.schedule) {
+          allScheduleData = scheduleData.schedule;
+          console.log('Loaded schedule data:', allScheduleData.length, 'records');
+        } else {
+          throw new Error('Failed to load schedule data');
+        }
+
+        setTimeout(() => {
+          processData();
+          displayData();
+          hideLoadingToasts();
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('tableContainer').style.display = 'block';
+          loadBtn.style.display = 'none';
+          showToast('✅ Data loaded successfully! Report is ready.', 'success', 4000);
+        }, 100);
+
+      } catch (err) {
+        console.error('Error loading data:', err);
+        hideLoadingToasts();
+        document.getElementById('loading').style.display = 'none';
+        showToast('❌ Error loading data: ' + err.message, 'error', 7000);
+        
+        loadBtn.disabled = false;
+        loadBtn.textContent = 'Load Data';
+        loadBtn.style.background = '#27ae60';
+      }
+    }
+
+    function parseDate(dateStr) {
+      if (!dateStr) return null;
+      
+      if (dateStr.includes('T')) {
+        return new Date(dateStr);
+      }
+      
+      if (typeof dateStr === 'string' && dateStr.match(/^\d{2}-\d{2}-\d{4}$/)) {
+        const parts = dateStr.split('-');
+        return new Date(parts[2], parts[1] - 1, parts[0]);
+      }
+      
+      if (typeof dateStr === 'string' && dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return new Date(dateStr);
+      }
+      
+      return new Date(dateStr);
+    }
+
+    function formatDate(date) {
+      if (!date) return '-';
+      const d = new Date(date);
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return day + '-' + month + '-' + year;
+    }
+
+    function formatShortDate(date) {
+      if (!date) return '-';
+      const d = new Date(date);
+      const day = String(d.getDate()).padStart(2, '0');
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return day + '-' + months[d.getMonth()];
+    }
+
+    function getMonthYearKey(date) {
+      const d = new Date(date);
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    }
+
+    function getMonthName(date) {
+      const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const d = new Date(date);
+      return monthsShort[d.getMonth()] + '-' + String(d.getFullYear()).slice(2);
+    }
+
+    function processData() {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const month1 = new Date(today.getFullYear(), today.getMonth(), 1);
+      const month2 = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const month3 = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+
+      document.getElementById('month3Header').textContent = getMonthName(month3);
+      document.getElementById('month2Header').textContent = getMonthName(month2);
+      document.getElementById('month1Header').textContent = getMonthName(month1);
+
+      const month1Key = getMonthYearKey(month1);
+      const month2Key = getMonthYearKey(month2);
+      const month3Key = getMonthYearKey(month3);
+
+      processedLoanData = {};
+      
+      allCustomerData.forEach(function(customer) {
+        const loanNo = String(customer['Loan No'] || customer['Loan Number'] || '').trim();
+        if (loanNo) {
+          // Try multiple possible column names for total installments from Ledger sheet Column K
+          const totalInst = customer['No of monthly instalments'] ||
+                           customer['No of Installments'] || 
+                           customer['Number of Installments'] || 
+                           customer['Installments'] || 
+                           customer['No. of Installments'] ||
+                           customer['Total Installments'] ||
+                           customer['No of installments'] ||
+                           customer['Tenure'] ||
+                           customer['Tenure (Months)'] ||
+                           0;
+          
+          processedLoanData[loanNo] = {
+            customerName: customer['Name of the customer'] || customer['Customer Name'] || '',
+            mobileNo: customer['Mobile No'] || customer['Mobile Number'] || customer['Mobile'] || 
+                     customer['Mobile No.'] || '',
+            totalInstallments: Number(totalInst),
+            month1: [],
+            month2: [],
+            month3: [],
+            loanNo: loanNo,
+            earliestDueDate: null
+          };
+        }
+      });
+      
+      allScheduleData.forEach(function(emi) {
+        const status = String(emi['Status'] || '').toLowerCase().trim();
+        const dueDate = parseDate(emi['Due Date']);
+        const amountPaid = emi['Amount Paid'];
+        const emiAmount = Number(emi['EMI Amount'] || 0);
+        
+        const paidAmount = Number(amountPaid || 0);
+        const isPending = (status === 'pending' || status === 'partial') || 
+                         (emiAmount > 0 && paidAmount < emiAmount);
+        
+        const loanNo = String(emi['Loan Number'] || '').trim();
+        const emiNumber = emi['EMI Number'] || '';
+        
+        if (!loanNo || !processedLoanData[loanNo]) return;
+        
+        const monthKey = getMonthYearKey(dueDate);
+        const isOverdue = dueDate && dueDate < today;
+        
+        if (isPending && (monthKey === month1Key || monthKey === month2Key || monthKey === month3Key)) {
+          const emiData = { 
+            emiNo: emiNumber, 
+            amount: emiAmount,
+            isPaid: false,
+            isOverdue: isOverdue,
+            dueDate: dueDate
+          };
+          
+          if (monthKey === month1Key) {
+            processedLoanData[loanNo].month1.push(emiData);
+          } else if (monthKey === month2Key) {
+            processedLoanData[loanNo].month2.push(emiData);
+          } else if (monthKey === month3Key) {
+            processedLoanData[loanNo].month3.push(emiData);
+          }
+          
+          // Track earliest due date for sorting
+          if (!processedLoanData[loanNo].earliestDueDate || 
+              (dueDate && dueDate < processedLoanData[loanNo].earliestDueDate)) {
+            processedLoanData[loanNo].earliestDueDate = dueDate;
+          }
+        }
+      });
+    }
+
+    function displayData() {
+      let sortedLoans;
+      
+      if (currentSortMode === 'loan') {
+        sortedLoans = Object.keys(processedLoanData).sort(function(a, b) {
+          const numA = parseInt(a) || 0;
+          const numB = parseInt(b) || 0;
+          return numA - numB;
+        });
+     } else {
+  sortedLoans = Object.keys(processedLoanData).sort(function(a, b) {
+    const dateA = processedLoanData[a].earliestDueDate;
+    const dateB = processedLoanData[b].earliestDueDate;
+    
+    if (!dateA && !dateB) return 0;
+    if (!dateA) return 1;
+    if (!dateB) return -1;
+    
+    // Sort by day of month first (1, 2, 3... 29, 30, 31)
+    const dayA = dateA.getDate();
+    const dayB = dateB.getDate();
+    
+    if (dayA !== dayB) {
+      return dayA - dayB;  // Group by day first
+    }
+    
+    // If same day, sort by full date chronologically
+    return dateA - dateB;
+  });
+}
+
+
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+
+      let rowsHTML = '';
+      
+      sortedLoans.forEach(function(loanNo, index) {
+        const data = processedLoanData[loanNo];
+        
+        data.month1.sort(function(a, b) { return parseInt(a.emiNo) - parseInt(b.emiNo); });
+        data.month2.sort(function(a, b) { return parseInt(a.emiNo) - parseInt(b.emiNo); });
+        data.month3.sort(function(a, b) { return parseInt(a.emiNo) - parseInt(b.emiNo); });
+        
+        const month3Total = data.month3.reduce(function(sum, e) { return sum + e.amount; }, 0);
+        const month2Total = data.month2.reduce(function(sum, e) { return sum + e.amount; }, 0);
+        const month1Total = data.month1.reduce(function(sum, e) { return sum + e.amount; }, 0);
+        const total = month1Total + month2Total + month3Total;
+
+        const month3List = data.month3.map(function(e) { return e.emiNo; }).join(', ');
+        const month2List = data.month2.map(function(e) { return e.emiNo; }).join(', ');
+        const month1List = data.month1.map(function(e) { return e.emiNo; }).join(', ');
+        
+        const totalInst = data.totalInstallments;
+        
+        // Format: EMI#/Total for each EMI in the month
+        const month3Display = data.month3.length > 0 
+          ? data.month3.map(function(e) { return e.emiNo + '/' + totalInst; }).join(', ')
+          : '-';
+        const month2Display = data.month2.length > 0 
+          ? data.month2.map(function(e) { return e.emiNo + '/' + totalInst; }).join(', ')
+          : '-';
+        const month1Display = data.month1.length > 0 
+          ? data.month1.map(function(e) { return e.emiNo + '/' + totalInst; }).join(', ')
+          : '-';
+        
+        // Get due dates for month1 EMIs
+        const month1DueDates = data.month1.map(function(e) { 
+          return formatShortDate(e.dueDate); 
+        }).join(', ');
+
+        rowsHTML += '<tr>' +
+          '<td class="col-sno sno-cell">' + (index + 1) + '</td>' +
+          '<td class="col-loan">' + loanNo + '</td>' +
+          '<td class="col-name left-align">' + data.customerName + '</td>' +
+          '<td class="col-mobile">' + data.mobileNo + '</td>' +
+          '<td class="col-emi-no"><div class="emi-list">' + month3Display + '</div></td>' +
+          '<td class="col-amount number-cell amount-cell">' + (month3Total > 0 ? month3Total.toLocaleString('en-IN') : '') + '</td>' +
+          '<td class="col-receipt"></td>' +
+          '<td class="col-date"></td>' +
+          '<td class="col-emi-no"><div class="emi-list">' + month2Display + '</div></td>' +
+          '<td class="col-amount number-cell amount-cell">' + (month2Total > 0 ? month2Total.toLocaleString('en-IN') : '') + '</td>' +
+          '<td class="col-receipt"></td>' +
+          '<td class="col-date"></td>' +
+          '<td class="col-emi-no"><div class="emi-list">' + month1Display + '</div></td>' +
+          '<td class="col-due-date"><div class="due-date-cell">' + (month1DueDates || '-') + '</div></td>' +
+          '<td class="col-amount number-cell amount-cell">' + (month1Total > 0 ? month1Total.toLocaleString('en-IN') : '') + '</td>' +
+          '<td class="col-receipt"></td>' +
+          '<td class="col-date"></td>' +
+          '<td class="number-cell total-col total-amount">' + (total > 0 ? total.toLocaleString('en-IN') : '') + '</td>' +
+          '</tr>';
+      });
+
+      tbody.innerHTML = rowsHTML;
+      console.log('Generated', sortedLoans.length, 'rows');
+    }
+
+    function sortByLoan() {
+      currentSortMode = 'loan';
+      document.getElementById('sortByLoanBtn').classList.add('active');
+      document.getElementById('sortByDateBtn').classList.remove('active');
+      displayData();
+      showToast('📋 Sorted by Loan Number', 'success', 3000);
+    }
+
+    function sortByDueDate() {
+      currentSortMode = 'date';
+      document.getElementById('sortByDateBtn').classList.add('active');
+      document.getElementById('sortByLoanBtn').classList.remove('active');
+      displayData();
+      showToast('📅 Sorted by Due Date', 'success', 3000);
+    }
+
+    function exportToExcel() {
+      const table = document.getElementById('overdueTable');
+      let html = table.outerHTML;
+      const blob = new Blob([html], {
+        type: 'application/vnd.ms-excel'
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Overdue_EMI_Report_AllEMIs_' + new Date().toISOString().slice(0, 10) + '.xls';
+      a.click();
+      window.URL.revokeObjectURL(url);
+      showToast('📥 Excel file downloaded successfully!', 'success', 4000);
+    }
+
+    function exportToPDF() {
+      const originalContent = document.body.innerHTML;
+      
+      const printContent = '<div style="width:100%;max-width:100%;">' +
+        document.querySelector('.report-header').outerHTML +
+        document.getElementById('tableContainer').outerHTML +
+        '</div>';
+      
+      document.body.innerHTML = printContent;
+      
+      const style = document.createElement('style');
+      style.textContent = '@page { size: A4 landscape; margin: 8mm; }' +
+        'body { margin: 0; padding: 0; font-family: Arial; }' +
+        '.report-header { text-align: center; margin-bottom: 8px; }' +
+        '.report-header h1 { font-size: 13pt; margin-bottom: 2px; }' +
+        '.report-header .date { font-size: 8pt; color: #666; }' +
+        '.excel-table { width: 100%; border-collapse: collapse; font-size: 6pt; }' +
+        '.excel-table th, .excel-table td { border: 1px solid #000; padding: 2px 1px; text-align: center; }' +
+        '.excel-table .header-row-1 th { background: #ffd966; font-size: 7pt; padding: 3px 1px; }' +
+        '.excel-table .header-row-2 th { background: #ffd966; font-size: 5.5pt; padding: 2px 1px; }' +
+        '.excel-table .month-jul { background: #fff2cc !important; }' +
+        '.excel-table .month-aug { background: #fce4d6 !important; }' +
+        '.excel-table .month-sep { background: #e2efda !important; }' +
+        '.excel-table .total-col { background: #b4c7e7 !important; }' +
+        '.left-align { text-align: left !important; padding-left: 4px !important; font-weight: bold !important; }' +
+        '.number-cell { text-align: right !important; padding-right: 4px !important; }' +
+        '.sno-cell { font-weight: bold !important; }' +
+        '.emi-list { font-size: 5.5pt; text-align: center; line-height: 1.2; }' +
+        '.due-date-cell { font-size: 5.5pt; color: #c00; }' +
+        '.amount-cell { font-size: 5.5pt; }' +
+        '.total-amount { font-size: 5.5pt; font-weight: bold; }';
+      document.head.appendChild(style);
+      
+      window.print();
+      
+      setTimeout(function() {
+        document.body.innerHTML = originalContent;
+        window.location.reload();
+      }, 1000);
+    }
+  </script>
+</body>
+</html>

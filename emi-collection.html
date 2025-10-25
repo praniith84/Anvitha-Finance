@@ -1,0 +1,1682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Anvitha Finance - EMI Collection</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Segoe UI,Tahoma,Arial,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);padding:18px;padding-left:100px;display:flex}
+    
+    /* ===== SIDEBAR STYLES ===== */
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 80px;
+        height: 100vh;
+        background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px 0;
+        gap: 15px;
+        box-shadow: 2px 0 15px rgba(0,0,0,0.2);
+        z-index: 1000;
+    }
+    
+    .sidebar-logo {
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: white;
+        font-weight: bold;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
+    }
+    
+    .sidebar-btn {
+        width: 55px;
+        height: 55px;
+        border-radius: 12px;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        position: relative;
+        color: white;
+    }
+    
+    .sidebar-btn:hover {
+        transform: translateX(5px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar-btn.home {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .sidebar-btn.save {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+    
+    .sidebar-btn.reset {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+    
+    .sidebar-btn.modifier {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    .sidebar-tooltip {
+        position: absolute;
+        left: 70px;
+        background: rgba(0,0,0,0.9);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        white-space: nowrap;
+        font-size: 12px;
+        font-weight: 500;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s;
+        z-index: 1001;
+    }
+    
+    .sidebar-btn:hover .sidebar-tooltip {
+        opacity: 1;
+    }
+    
+    .container{max-width:1200px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.12);flex:1}
+    .header{padding:28px;text-align:center;background:linear-gradient(135deg,#2c3e50,#3498db);color:#fff;position:relative}
+    .header h1{font-size:2rem;margin-bottom:6px;text-shadow:2px 2px 4px rgba(0,0,0,0.3)}
+    .header-subtitle{opacity:0.9;font-size:1rem}
+    .back-btn{position:absolute;left:20px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);padding:8px 14px;border-radius:20px;color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,0.3);transition:all 0.3s}
+    .back-btn:hover{background:rgba(255,255,255,0.25)}
+    .tabs{display:flex;background:#f6f7f9;border-bottom:2px solid #e9ecef}
+    .tab{flex:1;padding:14px;text-align:center;cursor:pointer;transition:all 0.3s}
+    .tab.active{background:#fff;border-bottom:4px solid #3498db;color:#222;font-weight:600}
+    .tab:hover:not(.active){background:#e9ecef}
+    .content{padding:22px}
+    .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-bottom:14px}
+    label{display:block;margin-bottom:6px;font-weight:600;color:#2c3e50}
+    input,select{width:100%;padding:10px;border-radius:8px;border:1px solid #e6e9ee;background:#fbfcfd;transition:border 0.3s}
+    input:focus,select:focus{outline:none;border-color:#3498db}
+    input:disabled{background:#f8f9fa;color:#6c757d;cursor:not-allowed}
+    input.duplicate-warning{border:2px solid #e74c3c;background:#fff5f5}
+    .btn{display:inline-block;padding:10px 14px;border-radius:8px;border:none;background:#3498db;color:#fff;cursor:pointer;margin-right:8px;transition:all 0.3s;font-weight:500}
+    .btn:hover{transform:translateY(-2px);box-shadow:0 4px 8px rgba(0,0,0,0.15)}
+    .btn.warn{background:#f39c12}
+    .btn.success{background:#27ae60}
+    .message{padding:12px;border-radius:8px;margin-bottom:12px;display:none;animation:slideIn 0.3s}
+    .message.success{background:#d4edda;color:#155724;border-left:4px solid #28a745}
+    .message.error{background:#f8d7da;color:#721c24;border-left:4px solid #dc3545}
+    .message.warning{background:#fff3cd;color:#856404;border-left:4px solid #ffc107}
+    @keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+    
+    /* ===== TOAST NOTIFICATION STYLES - CENTERED ===== */
+    .toast-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        display: none;
+        animation: fadeIn 0.3s ease-out;
+    }
+    
+    .toast-backdrop.show {
+        display: block;
+    }
+    
+    .toast-container-center {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 10000;
+        max-width: 500px;
+        width: 90%;
+    }
+    
+    .toast {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        margin-bottom: 10px;
+        padding: 20px 24px;
+        display: none;
+        animation: slideInScale 0.3s ease-out;
+        position: relative;
+        border-left: 5px solid;
+    }
+    
+    .toast.show {
+        display: block;
+    }
+    
+    .toast.success {
+        border-left-color: #28a745;
+        background: #d4edda;
+    }
+    
+    .toast.error {
+        border-left-color: #dc3545;
+        background: #f8d7da;
+    }
+    
+    .toast.warning {
+        border-left-color: #ffc107;
+        background: #fff3cd;
+    }
+    
+    .toast.loading {
+        border-left-color: #3498db;
+        background: #e3f2fd;
+    }
+    
+    .toast-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .toast-icon {
+        font-size: 24px;
+        flex-shrink: 0;
+    }
+    
+    .toast-message {
+        flex-grow: 1;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    
+    .toast.success .toast-message {
+        color: #155724;
+        font-weight: 600;
+    }
+    
+    .toast.error .toast-message {
+        color: #721c24;
+        font-weight: 600;
+    }
+    
+    .toast.warning .toast-message {
+        color: #856404;
+        font-weight: 600;
+    }
+    
+    .toast.loading .toast-message {
+        color: #1565c0;
+        font-weight: 600;
+    }
+    
+    .toast-close {
+        background: none;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        color: #999;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    
+    .toast-close:hover {
+        color: #333;
+    }
+    
+    .toast-spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #3498db;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes slideInScale {
+        from {
+            transform: scale(0.7);
+            opacity: 0;
+        }
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOut {
+        from {
+            transform: scale(1);
+            opacity: 1;
+        }
+        to {
+            transform: scale(0.7);
+            opacity: 0;
+        }
+    }
+    
+    .toast.hiding {
+        animation: slideOut 0.3s ease-out forwards;
+    }
+    /* ===== END TOAST STYLES ===== */
+
+    .duplicate-alert{background:#fff3cd;border:2px solid #ffc107;padding:10px;border-radius:6px;margin-top:5px;display:none}
+    .duplicate-alert strong{color:#856404}
+    .results-table{width:100%;border-collapse:collapse;margin-top:12px;box-shadow:0 2px 4px rgba(0,0,0,0.1)}
+    .results-table th{background:#2c3e50;color:#fff;padding:10px;text-align:left}
+    .results-table td{padding:8px;border-bottom:1px solid #eee}
+    .results-table tr:hover{background:#f8f9fa}
+    .loading{display:none;text-align:center;padding:20px}
+    .spinner{border:4px solid #f3f3f3;border-top:4px solid #3498db;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:0 auto}
+    @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+    .batch-mode-toggle{background:#f8f9fa;padding:15px;border-radius:8px;margin-bottom:15px;border:1px solid #dee2e6}
+    .batch-controls{margin-top:15px;padding:10px;background:#f1f3f4;border-radius:6px}
+    #batchEMITable{background:#f9f9f9;padding:15px;border-radius:8px;border:1px solid #ddd;margin-top:15px}
+    .checkbox-label{display:flex;align-items:center;gap:8px;font-weight:normal;cursor:pointer}
+    .checkbox-label input[type="checkbox"]{width:auto;cursor:pointer}
+    .batch-note{background:#e3f2fd;padding:8px;border-radius:4px;margin-top:5px;font-size:0.85em;color:#1565c0}
+    .customer-info-box{margin-top:16px;display:none;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #dee2e6}
+    .customer-info-box strong{color:#2c3e50;display:block;margin-bottom:10px;font-size:1.1em}
+    .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}
+    .info-item{background:#fff;padding:10px;border-radius:6px;border-left:3px solid #3498db}
+    .info-item strong{color:#2c3e50;font-size:0.9em}
+    
+    /* ===== PRINT RECEIPT STYLES ===== */
+    .print-receipt {
+        display: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .print-receipt.visible {
+        display: block;
+    }
+    
+    @media print {
+        body {
+            background: white;
+            padding: 0;
+            padding-left: 0;
+            margin: 0;
+        }
+        
+        .sidebar {
+            display: none !important;
+        }
+        
+        .container {
+            box-shadow: none;
+            border-radius: 0;
+            max-width: 100%;
+            margin: 0;
+        }
+        
+        .header {
+            display: none;
+        }
+        
+        .tabs {
+            display: none !important;
+        }
+        
+        .content {
+            display: none !important;
+        }
+        
+        #emi-entry {
+            display: none !important;
+        }
+        
+        .batch-mode-toggle,
+        h2,
+        #message,
+        #loading,
+        #emiForm,
+        #customerInfo,
+        .customer-info-box {
+            display: none !important;
+        }
+        
+        .print-receipt {
+            display: block !important;
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            font-size: 12px;
+            line-height: 1.8;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .receipt-header {
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+        
+        .receipt-section {
+            margin-bottom: 8px;
+            page-break-inside: avoid;
+        }
+        
+        .receipt-item {
+            display: flex;
+            margin-bottom: 4px;
+            font-size: 12px;
+            justify-content: space-between;
+        }
+        
+        .receipt-label {
+            font-weight: bold;
+            width: 50%;
+        }
+        
+        .receipt-value {
+            width: 50%;
+            text-align: right;
+        }
+        
+        .receipt-divider {
+            text-align: center;
+            margin: 5px 0;
+            font-size: 11px;
+            opacity: 0.8;
+        }
+        
+        .receipt-footer {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 11px;
+            font-weight: bold;
+            line-height: 1.6;
+        }
+        
+        .receipt-seal-container {
+            display: none;
+        }
+        
+        @page {
+            size: A4;
+            margin: 15mm;
+        }
+        
+        html, body {
+            width: 210mm;
+            height: 297mm;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        body {
+            padding-left: 80px;
+        }
+        .sidebar {
+            width: 60px;
+        }
+        .sidebar-btn {
+            width: 45px;
+            height: 45px;
+            font-size: 18px;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+        }
+    }
+    
+    /* Collection Search Styles */
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid #e9ecef;
+        font-size: 14px;
+    }
+    
+    .info-row:last-child {
+        border-bottom: none;
+    }
+    
+    .info-row strong {
+        color: #495057;
+        font-weight: 600;
+    }
+    
+    .info-row span {
+        color: #2c3e50;
+        font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar Navigation -->
+  <div class="sidebar">
+      <div class="sidebar-logo">&#128176;</div>
+      <button class="sidebar-btn home" onclick="window.location.href='home_page.html'">
+          <span>&#127968;</span>
+          <div class="sidebar-tooltip">Home</div>
+      </button>
+      <button class="sidebar-btn save" onclick="document.getElementById('emiForm').dispatchEvent(new Event('submit'))">
+          <span>&#128190;</span>
+          <div class="sidebar-tooltip">Save</div>
+      </button>
+      <button class="sidebar-btn reset" onclick="clearForm()">
+          <span>&#8635;</span>
+          <div class="sidebar-tooltip">Reset</div>
+      </button>
+      <button class="sidebar-btn modifier" onclick="window.location.href='emi_collection_modifier.html'">
+          <span>&#9998;</span>
+          <div class="sidebar-tooltip">EMI Modifier</div>
+      </button>
+  </div>
+
+  <!-- Toast Backdrop -->
+  <div class="toast-backdrop" id="toastBackdrop"></div>
+  
+  <!-- Toast Container -->
+  <div class="toast-container-center" id="toastContainer"></div>
+
+  <div class="container">
+    <div class="header">
+      <h1>&#128176; ANVITHA FINANCE</h1>
+      <div class="header-subtitle">EMI COLLECTION RECEIPT</div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('emi-entry')">EMI Collection</div>
+      <div class="tab" onclick="showTab('collection-search')">EMI Collection ID Search</div>
+    </div>
+
+    <div id="emi-entry" class="content" style="display:block">
+      <div class="batch-mode-toggle">
+        <label class="checkbox-label">
+          <input type="checkbox" id="batchMode" onchange="toggleBatchMode()"> 
+          <span><strong>Batch Collection Mode</strong></span>
+        </label>
+        <small style="opacity:.7;display:block;margin-top:5px">Enable to collect multiple EMIs at once for this loan</small>
+      </div>
+
+      <h2>Record EMI Collection</h2>
+      <div id="message" class="message"></div>
+      <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p style="margin-top:10px">Processing...</p>
+      </div>
+
+      <form id="emiForm">
+        <div class="form-row">
+          <div>
+            <label for="loanNo">Loan Number <span style="color:#c00">*</span></label>
+            <input id="loanNo" name="loanNo" required placeholder="Enter Loan Number" />
+          </div>
+          <div>
+            <label for="customerName">Customer Name</label>
+            <input id="customerName" name="customerName" readonly />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div>
+            <label for="emiAmount">EMI Amount</label>
+            <input id="emiAmount" name="emiAmount" type="number" step="0.01" readonly />
+          </div>
+          <div>
+            <label for="collectionDate">Collection Date</label>
+            <input id="collectionDate" name="collectionDate" type="date" required />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div>
+            <label for="collectionId">Collection ID <span style="color:#c00">*</span></label>
+            <input id="collectionId" name="collectionId" required placeholder="Enter Collection ID" />
+            <div id="collectionIdAlert" class="duplicate-alert">
+              <strong>âš  Warning:</strong> <span id="collectionIdWarningText"></span>
+            </div>
+            <div id="batchNote" class="batch-note" style="display:none;">
+              In batch mode, individual IDs will auto-generate (Base ID + EMI Number)
+            </div>
+          </div>
+          <div>
+            <label for="amountPaid">Amount Paid <span style="color:#c00">*</span></label>
+            <input id="amountPaid" name="amountPaid" type="number" step="0.01" required />
+          </div>
+        </div>
+
+        <div id="singleEMIFields">
+          <div class="form-row">
+            <div>
+              <label for="emiMonth">EMI Number</label>
+              <select id="emiMonth" name="emiMonth" required>
+                <option value="">Select EMI Number</option>
+              </select>
+              <div id="emiMonthAlert" class="duplicate-alert">
+                <strong>âš  Warning:</strong> <span id="emiMonthWarningText"></span>
+              </div>
+            </div>
+            <div>
+              <label for="status">Status</label>
+              <select id="status" name="status">
+                <option value="Paid">Paid</option>
+                <option value="Partial">Partial</option>
+                <option value="Pending">Pending</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div id="batchEMITable" style="display:none;">
+          <h3 style="margin-bottom:10px">Select EMIs to Collect</h3>
+          <table class="results-table">
+            <thead>
+              <tr>
+                <th style="width:50px">Select</th>
+                <th>EMI #</th>
+                <th>EMI Amount</th>
+                <th>Status</th>
+                <th>Collection ID</th>
+                <th>Collection Date</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody id="batchEMIBody"></tbody>
+          </table>
+          <div class="batch-controls">
+            <button type="button" class="btn" onclick="selectAllPending()">Select All Pending</button>
+            <button type="button" class="btn success" onclick="fillAllAmounts()">Fill Amounts</button>
+            <button type="button" class="btn success" onclick="fillAllCollectionIds()">Auto-generate IDs</button>
+            <button type="button" class="btn warn" onclick="clearBatchSelection()">Clear</button>
+          </div>
+        </div>
+
+        <div style="margin-top:20px">
+          <button type="submit" class="btn success">&#128190; Record Collection</button>
+          <button type="button" class="btn warn" onclick="clearForm()">&#128260; Clear Form</button>
+        </div>
+      </form>
+
+      <div id="customerInfo" class="customer-info-box">
+        <strong>&#128203; Customer Information</strong>
+        <div id="custDetails" class="info-grid"></div>
+      </div>
+      
+      <!-- Print Receipt (Hidden, shown on print) -->
+      <div id="printReceiptContainer" class="print-receipt"></div>
+    </div>
+
+    <!-- Collection ID Search Tab -->
+    <div id="collection-search" class="content" style="display:none">
+      <h2>&#128269; Search by Collection ID</h2>
+      <div id="searchMessage" class="message"></div>
+      
+      <div class="form-row">
+        <div style="max-width: 500px;">
+          <label for="searchCollectionId">Collection ID <span style="color:#c00">*</span></label>
+          <input 
+            id="searchCollectionId" 
+            name="searchCollectionId" 
+            required 
+            placeholder="Enter Collection ID to search" 
+            style="font-size: 16px; padding: 12px;"
+          />
+        </div>
+        <div style="display: flex; align-items: end; gap: 10px;">
+          <button class="btn" onclick="searchByCollectionId()">&#128269; Search</button>
+          <button class="btn warn" onclick="clearCollectionSearch()">&#128465; Clear</button>
+        </div>
+      </div>
+
+      <!-- Search Results -->
+      <div id="collectionSearchResults" style="display:none; margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 12px; border: 2px solid #3498db;">
+        <h3 style="color: #2c3e50; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 24px;">&#128196;</span>
+          Collection Record Details
+        </h3>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+          <!-- Collection Information -->
+          <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <h4 style="color: #3498db; margin-bottom: 15px; border-bottom: 2px solid #3498db; padding-bottom: 8px;">&#128179; Collection Information</h4>
+            <div class="info-row">
+              <strong>Collection ID:</strong>
+              <span id="resultCollectionId">-</span>
+            </div>
+            <div class="info-row">
+              <strong>Collection Date:</strong>
+              <span id="resultCollectionDate">-</span>
+            </div>
+            <div class="info-row">
+              <strong>Amount Paid:</strong>
+              <span id="resultAmountPaid" style="color: #27ae60; font-weight: 600;">-</span>
+            </div>
+            <div class="info-row">
+              <strong>Status:</strong>
+              <span id="resultStatus">-</span>
+            </div>
+          </div>
+
+          <!-- Loan Information -->
+          <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <h4 style="color: #e74c3c; margin-bottom: 15px; border-bottom: 2px solid #e74c3c; padding-bottom: 8px;">&#128203; Loan Information</h4>
+            <div class="info-row">
+              <strong>Loan Number:</strong>
+              <span id="resultLoanNumber">-</span>
+            </div>
+            <div class="info-row">
+              <strong>Customer Name:</strong>
+              <span id="resultCustomerName">-</span>
+            </div>
+            <div class="info-row">
+              <strong>EMI Month/Number:</strong>
+              <span id="resultEMIMonth">-</span>
+            </div>
+            <div class="info-row">
+              <strong>EMI Amount:</strong>
+              <span id="resultEMIAmount">-</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+          <strong style="color: #856404;">&#8505; Additional Info:</strong>
+          <div id="resultAdditionalInfo" style="margin-top: 8px; color: #856404;">
+            <!-- Additional dynamic information will be displayed here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzPBMML2B8a6dMXMFL78dBIEeSRGG8yEhk2xn9BBEO_kx1kfan_Re73qOsIKAsjkQ8/exec';
+    const SECRET = 'ANVITHA_SUPER_SECRET_2025';
+
+    let currentSchedule = [];
+    let currentLedger = null;
+    let batchMode = false;
+    let existingCollections = [];
+
+    // ===== TOAST NOTIFICATION SYSTEM =====
+    let currentLoadingToast = null;
+
+    function showToast(message, type = 'success', duration = 5000) {
+        const container = document.getElementById('toastContainer');
+        const backdrop = document.getElementById('toastBackdrop');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        let icon = '&#10004;';
+        if (type === 'error') icon = '&#10005;';
+        if (type === 'warning') icon = '&#9888;';
+        if (type === 'loading') icon = '<div class="toast-spinner"></div>';
+        
+        toast.innerHTML = `
+            <div class="toast-content">
+                <div class="toast-icon">${icon}</div>
+                <div class="toast-message">${message}</div>
+                ${type !== 'loading' ? '<button class="toast-close" onclick="closeToast(this)">&#215;</button>' : ''}
+            </div>
+        `;
+        
+        container.appendChild(toast);
+        backdrop.classList.add('show');
+        setTimeout(() => toast.classList.add('show'), 10);
+        
+        if (type !== 'loading' && duration > 0) {
+            setTimeout(() => hideToast(toast), duration);
+        }
+        
+        return toast;
+    }
+
+    function hideToast(toast) {
+        const backdrop = document.getElementById('toastBackdrop');
+        const container = document.getElementById('toastContainer');
+        
+        toast.classList.add('hiding');
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+            if (container.children.length === 0) {
+                backdrop.classList.remove('show');
+            }
+        }, 300);
+    }
+
+    function closeToast(button) {
+        const toast = button.closest('.toast');
+        hideToast(toast);
+    }
+
+    function hideLoadingToasts() {
+        const loadingToasts = document.querySelectorAll('.toast.loading');
+        loadingToasts.forEach(toast => hideToast(toast));
+        if (currentLoadingToast) {
+            hideToast(currentLoadingToast);
+            currentLoadingToast = null;
+        }
+    }
+
+
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const today = new Date();
+      document.getElementById('collectionDate').value = today.toISOString().slice(0,10);
+      
+      // Add duplicate check listeners
+      document.getElementById('collectionId').addEventListener('input', checkDuplicateCollectionId);
+      document.getElementById('emiMonth').addEventListener('change', checkDuplicateEMI);
+    });
+
+    function showTab(id) {
+      document.querySelectorAll('.content').forEach(c => c.style.display = 'none');
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById(id).style.display = 'block';
+      event.target.classList.add('active');
+    }
+
+    function showMessage(text, type='success') {
+      // Updated to use toast notifications
+      showToast(text, type, type === 'error' ? 7000 : 5000);
+      
+      // Keep old message element hidden for compatibility
+      const el = document.getElementById('message');
+      el.style.display = 'none';
+    }
+
+    function showLoading(show) {
+      // Hide old loading element
+      document.getElementById('loading').style.display = 'none';
+      
+      if (show) {
+        if (!currentLoadingToast) {
+          currentLoadingToast = showToast('&#128260; Processing...', 'loading', 0);
+        }
+      } else {
+        if (currentLoadingToast) {
+          hideToast(currentLoadingToast);
+          currentLoadingToast = null;
+        }
+        hideLoadingToasts();
+      }
+    }
+
+    function checkDuplicateCollectionId() {
+      const collectionId = document.getElementById('collectionId').value.trim();
+      const alert = document.getElementById('collectionIdAlert');
+      const input = document.getElementById('collectionId');
+      const warningText = document.getElementById('collectionIdWarningText');
+      
+      if (!collectionId || batchMode) {
+        alert.style.display = 'none';
+        input.classList.remove('duplicate-warning');
+        return;
+      }
+      
+      // CHECK GLOBALLY - across ALL loans, not just current loan
+      const duplicate = existingCollections.find(c => 
+        String(c['Collection ID'] || '').trim().toLowerCase() === collectionId.toLowerCase()
+      );
+      
+      if (duplicate) {
+        const emiNum = duplicate['EMI Month'] || 'Unknown';
+        const date = duplicate['Collection Date'] || 'Unknown date';
+        const loanNum = duplicate['Loan Number'] || 'Unknown';
+        warningText.textContent = `Collection ID "${collectionId}" already exists for Loan #${loanNum}, EMI #${emiNum} on ${date}`;
+        alert.style.display = 'block';
+        input.classList.add('duplicate-warning');
+      } else {
+        alert.style.display = 'none';
+        input.classList.remove('duplicate-warning');
+      }
+    }
+
+    function checkDuplicateEMI() {
+      const emiNumber = document.getElementById('emiMonth').value;
+      const loanNo = document.getElementById('loanNo').value.trim();
+      const alert = document.getElementById('emiMonthAlert');
+      const warningText = document.getElementById('emiMonthWarningText');
+      
+      if (!emiNumber || !loanNo || batchMode) {
+        alert.style.display = 'none';
+        return;
+      }
+      
+      const duplicates = existingCollections.filter(c => 
+        String(c['Loan Number'] || '').trim() === loanNo &&
+        String(c['EMI Month'] || '').trim() === emiNumber
+      );
+      
+      if (duplicates.length > 0) {
+        const collectionIds = duplicates.map(d => d['Collection ID']).join(', ');
+        warningText.textContent = `EMI #${emiNumber} already has collection(s): ${collectionIds}`;
+        alert.style.display = 'block';
+      } else {
+        alert.style.display = 'none';
+      }
+    }
+
+    async function toggleBatchMode() {
+      batchMode = document.getElementById('batchMode').checked;
+      const collIdField = document.getElementById('collectionId');
+      const batchNote = document.getElementById('batchNote');
+      const singleFields = document.getElementById('singleEMIFields');
+      const batchTable = document.getElementById('batchEMITable');
+      
+      if (batchMode) {
+        collIdField.disabled = true;
+        collIdField.placeholder = 'Auto-generated in batch mode';
+        batchNote.style.display = 'block';
+        singleFields.style.display = 'none';
+        document.getElementById('amountPaid').removeAttribute('required');
+        document.getElementById('emiMonth').removeAttribute('required');
+        document.getElementById('collectionIdAlert').style.display = 'none';
+        document.getElementById('emiMonthAlert').style.display = 'none';
+        
+        if (currentSchedule.length > 0) {
+          await populateBatchEMITable(currentSchedule);
+          batchTable.style.display = 'block';
+        }
+      } else {
+        collIdField.disabled = false;
+        collIdField.placeholder = 'Enter Collection ID';
+        batchNote.style.display = 'none';
+        singleFields.style.display = 'block';
+        batchTable.style.display = 'none';
+        document.getElementById('amountPaid').setAttribute('required', '');
+        document.getElementById('emiMonth').setAttribute('required', '');
+        checkDuplicateCollectionId();
+        checkDuplicateEMI();
+      }
+    }
+
+    async function populateBatchEMITable(schedule) {
+      const tbody = document.getElementById('batchEMIBody');
+      tbody.innerHTML = '';
+      
+      const loanNo = document.getElementById('loanNo').value.trim();
+      let existingData = {};
+      
+      if (loanNo) {
+        try {
+          const res = await fetch(`${SCRIPT_URL}?action=searchEMIRecords&loanNo=${encodeURIComponent(loanNo)}&secret=${encodeURIComponent(SECRET)}`);
+          const data = await res.json();
+          if (data.status === 'success' && data.records) {
+            data.records.forEach(r => {
+              const emiNum = r['EMI Month'];
+              if (emiNum) {
+                let dateForInput = '';
+                const collDate = r['Collection Date'];
+                if (collDate && collDate.match(/^\d{2}-\d{2}-\d{4}$/)) {
+                  const [day, month, year] = collDate.split('-');
+                  dateForInput = `${year}-${month}-${day}`;
+                }
+                
+                existingData[emiNum] = {
+                  collectionId: r['Collection ID'] || '',
+                  date: dateForInput,
+                  amount: r['Amount Paid'] || r['Amoiunt Paid'] || ''
+                };
+              }
+            });
+          }
+        } catch(e) {
+          console.error('Error loading collections:', e);
+        }
+      }
+      
+      const today = new Date().toISOString().slice(0,10);
+      
+      schedule.forEach((emi, i) => {
+        const status = emi['Status'] || 'Pending';
+        const isPaid = status.toLowerCase() === 'paid';
+        const emiNo = emi['EMI Number'];
+        const existing = existingData[emiNo] || {};
+        const displayDate = existing.date || today;
+        
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><input type="checkbox" id="emi_${i}" ${isPaid ? 'disabled' : ''}></td>
+          <td>${emiNo}</td>
+          <td>&#8377;${emi['EMI Amount'] || 0}</td>
+          <td><span style="color:${isPaid ? 'green' : status.toLowerCase() === 'partial' ? 'orange' : 'red'}">${status}</span></td>
+          <td><input type="text" id="cid_${i}" value="${existing.collectionId || ''}" placeholder="" style="width:140px" ${isPaid ? 'readonly style="background:#f0f0f0;width:140px"' : ''}></td>
+          <td><input type="date" id="date_${i}" value="${displayDate}" style="width:130px" ${isPaid ? 'readonly style="background:#f0f0f0;width:130px"' : ''}></td>
+          <td><input type="number" id="amt_${i}" value="${existing.amount || ''}" placeholder="${emi['EMI Amount']}" step="0.01" style="width:100px" ${isPaid ? 'readonly style="background:#f0f0f0;width:100px"' : ''}></td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function selectAllPending() {
+      document.querySelectorAll('#batchEMIBody input[type="checkbox"]:not([disabled])').forEach(cb => cb.checked = true);
+    }
+
+    function fillAllAmounts() {
+      currentSchedule.forEach((emi, i) => {
+        const cb = document.getElementById(`emi_${i}`);
+        const amt = document.getElementById(`amt_${i}`);
+        if (cb && cb.checked && !cb.disabled && amt) {
+          amt.value = emi['EMI Amount'] || '';
+        }
+      });
+    }
+
+    function fillAllCollectionIds() {
+      const baseId = document.getElementById('collectionId').value.trim();
+      if (!baseId) {
+        alert('Please enter a Collection ID first');
+        return;
+      }
+      currentSchedule.forEach((emi, i) => {
+        const cb = document.getElementById(`emi_${i}`);
+        const cid = document.getElementById(`cid_${i}`);
+        if (cb && cb.checked && !cb.disabled && cid) {
+          cid.value = `${baseId}-${emi['EMI Number']}`;
+        }
+      });
+    }
+
+    function clearBatchSelection() {
+      const today = new Date().toISOString().slice(0,10);
+      document.querySelectorAll('#batchEMIBody input[type="checkbox"]').forEach(cb => cb.checked = false);
+      document.querySelectorAll('#batchEMIBody input[type="number"]').forEach(inp => inp.value = '');
+      document.querySelectorAll('#batchEMIBody input[type="text"]').forEach(inp => inp.value = '');
+      document.querySelectorAll('#batchEMIBody input[type="date"]').forEach(inp => inp.value = today);
+    }
+
+    document.getElementById('loanNo').addEventListener('blur', async function() {
+      const loanNo = this.value.trim();
+      if (loanNo) await lookupLoan(loanNo);
+    });
+
+    async function lookupLoan(loanNo) {
+      if (!loanNo) return;
+      
+      try {
+        showLoading(true);
+        const res = await fetch(`${SCRIPT_URL}?action=lookupCustomer&loanNo=${encodeURIComponent(loanNo)}&secret=${encodeURIComponent(SECRET)}`);
+        const data = await res.json();
+        
+        if (data.status === 'success' && data.data) {
+          currentLedger = data.data;
+          document.getElementById('customerName').value = data.data['Name of the customer'] || '';
+          const emiAmount = data.data['Total EMI'] || '';
+          document.getElementById('emiAmount').value = emiAmount;
+          document.getElementById('amountPaid').value = emiAmount;
+          
+          const info = [
+            ['Customer', data.data['Name of the customer']],
+            ['Mobile', data.data['Mobile No']],
+            ['Loan Amount', '&#8377;' + (data.data['Loan Amount'] || 0)],
+            ['EMI Amount', '&#8377;' + (data.data['Total EMI'] || 0)],
+            ['Installments', data.data['No of monthly instalments']],
+            ['Total Payable', '&#8377;' + (data.data['Total amt to be paid'] || 0)]
+          ];
+          
+          document.getElementById('custDetails').innerHTML = info.map(([label, val]) => 
+            `<div class="info-item"><strong>${label}:</strong><br>${val || '-'}</div>`
+          ).join('');
+          document.getElementById('customerInfo').style.display = 'block';
+          
+          await loadSchedule(loanNo);
+          await loadExistingCollections(loanNo);
+        } else {
+          showLoading(false);
+          showMessage(data.message || 'Loan not found', 'error');
+          currentLedger = null;
+          document.getElementById('customerInfo').style.display = 'none';
+        }
+      } catch(e) {
+        showLoading(false);
+        showMessage('Error: ' + e.message, 'error');
+      }
+    }
+
+    async function loadExistingCollections(loanNo) {
+      try {
+        // FIXED: Load ALL collections globally, not just for current loan
+        // This ensures Collection IDs are checked across the entire system
+        const res = await fetch(`${SCRIPT_URL}?action=searchEMIRecords&secret=${encodeURIComponent(SECRET)}`);
+        const data = await res.json();
+        
+        if (data.status === 'success' && data.records) {
+          existingCollections = data.records;
+        } else {
+          existingCollections = [];
+        }
+      } catch(e) {
+        console.error('Error loading existing collections:', e);
+        existingCollections = [];
+      }
+    }
+
+    async function loadSchedule(loanNo) {
+      try {
+        const res = await fetch(`${SCRIPT_URL}?action=getEMISchedule&loanNo=${encodeURIComponent(loanNo)}&secret=${encodeURIComponent(SECRET)}`);
+        const data = await res.json();
+        
+        showLoading(false);
+        
+        if (data.status === 'success' && data.schedule) {
+          currentSchedule = data.schedule;
+          
+          let totalPaidTillNow = 0;
+          let outstandingBalance = 0;
+          let nextPendingEMI = null;
+          
+          data.schedule.forEach(emi => {
+            const status = (emi['Status'] || '').toLowerCase();
+            const amountPaid = parseFloat(emi['Amount Paid']) || 0;
+            totalPaidTillNow += amountPaid;
+            
+            if (status === 'pending' && !nextPendingEMI) {
+              nextPendingEMI = emi['EMI Number'];
+            }
+          });
+          
+          if (data.schedule.length > 0) {
+            const lastEMI = data.schedule[data.schedule.length - 1];
+            outstandingBalance = parseFloat(lastEMI['Outstanding Balance']) || 0;
+          }
+          
+          populateEMIDropdown(data.schedule, nextPendingEMI);
+          
+          const info = [
+            ['Customer', currentLedger['Name of the customer']],
+            ['Mobile', currentLedger['Mobile No']],
+            ['Loan Amount', '&#8377;' + (currentLedger['Loan Amount'] || 0)],
+            ['EMI Amount', '&#8377;' + (currentLedger['Total EMI'] || 0)],
+            ['Installments', currentLedger['No of monthly instalments']],
+            ['Total Payable', '&#8377;' + (currentLedger['Total amt to be paid'] || 0)],
+            ['Total Paid Till Now', '&#8377;' + totalPaidTillNow.toFixed(2)],
+            ['Outstanding Balance', '&#8377;' + outstandingBalance.toFixed(2)]
+          ];
+          
+          document.getElementById('custDetails').innerHTML = info.map(([label, val]) => 
+            `<div class="info-item"><strong>${label}:</strong><br>${val || '-'}</div>`
+          ).join('');
+          document.getElementById('customerInfo').style.display = 'block';
+          
+          if (batchMode) {
+            await populateBatchEMITable(data.schedule);
+            document.getElementById('batchEMITable').style.display = 'block';
+          }
+        }
+      } catch(e) {
+        showLoading(false);
+        console.error('Schedule load error:', e);
+      }
+    }
+
+    function populateEMIDropdown(schedule, autoSelectEMI) {
+      const sel = document.getElementById('emiMonth');
+      sel.innerHTML = '<option value="">Select EMI Number</option>';
+      schedule.forEach(row => {
+        const opt = document.createElement('option');
+        opt.value = row['EMI Number'];
+        opt.text = `EMI ${row['EMI Number']} - &#8377;${row['EMI Amount']} - ${row['Status']}`;
+        sel.appendChild(opt);
+      });
+      
+      if (autoSelectEMI) {
+        sel.value = autoSelectEMI;
+      }
+    }
+
+    function clearForm() {
+      document.getElementById('emiForm').reset();
+      document.getElementById('collectionDate').value = new Date().toISOString().slice(0,10);
+      document.getElementById('customerInfo').style.display = 'none';
+      document.getElementById('batchMode').checked = false;
+      document.getElementById('collectionIdAlert').style.display = 'none';
+      document.getElementById('emiMonthAlert').style.display = 'none';
+      document.getElementById('collectionId').classList.remove('duplicate-warning');
+      batchMode = false;
+      document.getElementById('collectionId').disabled = false;
+      document.getElementById('singleEMIFields').style.display = 'block';
+      document.getElementById('batchEMITable').style.display = 'none';
+      currentLedger = null;
+      currentSchedule = [];
+      existingCollections = [];
+    }
+
+    // ===== PRINT RECEIPT FUNCTIONS =====
+    function generatePrintReceipt() {
+      const loanNo = document.getElementById('loanNo').value.trim();
+      const customerName = document.getElementById('customerName').value;
+      const collectionId = document.getElementById('collectionId').value.trim();
+      const collectionDate = document.getElementById('collectionDate').value;
+      const emiAmount = document.getElementById('emiAmount').value;
+      const amountPaid = document.getElementById('amountPaid').value;
+      const emiMonth = document.getElementById('emiMonth').value;
+      const status = document.getElementById('status').value;
+      
+      const currentDate = new Date();
+      const day = String(currentDate.getDate()).padStart(2, '0');
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+      const year = currentDate.getFullYear();
+      const receiptDate = `${day}-${month}-${year}`;
+      
+      const receiptHTML = `
+        <div class="receipt-header">
+                    &#9733; ANVITHA FINANCE &#9733;
+          <br>NANDIGAMA
+          <br>EMI COLLECTION RECEIPT
+        </div>
+        
+        <div class="receipt-divider">================================</div>
+        
+        <div class="receipt-section">
+          <div class="receipt-item">
+            <div class="receipt-label">RECEIPT NO:</div>
+            <div class="receipt-value">${collectionId}</div>
+          </div>
+          <div class="receipt-item">
+            <div class="receipt-label">DATE:</div>
+            <div class="receipt-value">${receiptDate}</div>
+          </div>
+          <div class="receipt-item">
+            <div class="receipt-label">TIME:</div>
+            <div class="receipt-value">${currentDate.getHours().toString().padStart(2, '0')}:${currentDate.getMinutes().toString().padStart(2, '0')}</div>
+          </div>
+        </div>
+        
+        <div class="receipt-divider">================================</div>
+        
+        <div class="receipt-section">
+          <div class="receipt-item">
+            <div class="receipt-label">LOAN NO.:</div>
+            <div class="receipt-value">${loanNo}</div>
+          </div>
+          <div class="receipt-item">
+            <div class="receipt-label">CUSTOMER:</div>
+            <div class="receipt-value">${customerName}</div>
+          </div>
+        </div>
+        
+        <div class="receipt-divider">================================</div>
+        
+        <div class="receipt-section">
+          <div class="receipt-item">
+            <div class="receipt-label">EMI NUMBER:</div>
+            <div class="receipt-value">${emiMonth}</div>
+          </div>
+          <div class="receipt-item">
+            <div class="receipt-label">EMI AMOUNT:</div>
+            <div class="receipt-value">&#8377; ${(parseFloat(emiAmount) || 0).toLocaleString('en-IN')}</div>
+          </div>
+          <div class="receipt-item">
+            <div class="receipt-label">AMOUNT RECEIVED:</div>
+            <div class="receipt-value">&#8377; ${(parseFloat(amountPaid) || 0).toLocaleString('en-IN')}</div>
+          </div>
+          <div class="receipt-item">
+            <div class="receipt-label">STATUS:</div>
+            <div class="receipt-value">${status}</div>
+          </div>
+          <div class="receipt-item">
+            <div class="receipt-label">COLLECTION DATE:</div>
+            <div class="receipt-value">${collectionDate}</div>
+          </div>
+        </div>
+        
+        <div class="receipt-divider">================================</div>
+        
+        <div class="receipt-footer">
+          &#10004; PAYMENT RECEIVED SUCCESSFULLY
+          <br><br>
+          Thank you for your timely payment.
+          <br>Please keep this receipt for your records.
+          <br><br>
+          This is a computer generated receipt.
+          <br>No signature required.
+          <br><br>
+          &#9733; &#9733; &#9733;
+        </div>
+      `;
+      
+      return receiptHTML;
+    }
+
+    function generateSealStamp() {
+      return `
+        <div class="receipt-seal-container">
+          <svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" class="receipt-seal-svg">
+            <!-- Outer circle -->
+            <circle cx="150" cy="150" r="145" fill="none" stroke="#d32f2f" stroke-width="8"/>
+            
+            <!-- Inner circle -->
+            <circle cx="150" cy="150" r="135" fill="none" stroke="#d32f2f" stroke-width="4"/>
+            
+            <!-- Center design -->
+            <circle cx="150" cy="150" r="80" fill="#d32f2f" opacity="0.08"/>
+            
+            <!-- Rupee symbol on top -->
+            <text x="150" y="95" font-size="28" text-anchor="middle" fill="#d32f2f" font-weight="bold">&#8377;</text>
+            
+            <!-- Bike icon in center -->
+            <text x="150" y="170" font-size="70" text-anchor="middle" fill="#d32f2f">ðŸï¸</text>
+            
+            <!-- Text around the circle using path - LARGER FONT -->
+            <defs>
+              <path id="topCurve" d="M 40,150 A 110,110 0 0,1 260,150" fill="none"/>
+            </defs>
+            <text font-size="22" fill="#d32f2f" font-weight="bold" letter-spacing="3">
+              <textPath href="#topCurve" startOffset="50%" text-anchor="middle">
+                                &#9733; ANVITHA FINANCE &#9733;
+              </textPath>
+            </text>
+            
+            <!-- Bottom text - NANDIGAMA -->
+            <text x="150" y="265" font-size="16" text-anchor="middle" fill="#d32f2f" font-weight="bold" letter-spacing="2">
+              NANDIGAMA
+            </text>
+          </svg>
+        </div>
+      `;
+    }
+
+    function preparePrintReceipt() {
+      const loanNo = document.getElementById('loanNo').value.trim();
+      const collectionId = document.getElementById('collectionId').value.trim();
+      
+      if (!loanNo || !collectionId) {
+        showToast('Please fill in Loan Number and Collection ID to print receipt', 'error', 5000);
+        return;
+      }
+      
+      const receiptHTML = generatePrintReceipt();
+      document.getElementById('printReceiptContainer').innerHTML = receiptHTML;
+      
+      // Force layout recalculation
+      setTimeout(() => {
+        window.print();
+      }, 50);
+    }
+
+    document.getElementById('emiForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      // Check for duplicates before submission in single mode - BLOCK if found
+      if (!batchMode) {
+        const collectionId = document.getElementById('collectionId').value.trim();
+        const emiNumber = document.getElementById('emiMonth').value;
+        const loanNo = document.getElementById('loanNo').value.trim();
+        
+        // FIXED: Check Collection ID globally across ALL loans
+        const duplicateCollectionId = existingCollections.find(c => 
+          String(c['Collection ID'] || '').trim().toLowerCase() === collectionId.toLowerCase()
+        );
+        
+        const duplicateEMI = existingCollections.find(c => 
+          String(c['Loan Number'] || '').trim() === loanNo &&
+          String(c['EMI Month'] || '').trim() === emiNumber
+        );
+        
+        if (duplicateCollectionId) {
+          const existingLoan = duplicateCollectionId['Loan Number'] || 'Unknown';
+          const existingEMI = duplicateCollectionId['EMI Month'] || 'Unknown';
+          showMessage(`âŒ Cannot record: Collection ID "${collectionId}" already exists for Loan #${existingLoan}, EMI #${existingEMI}`, 'error');
+          return;
+        }
+        
+        if (duplicateEMI) {
+          const existingCollId = duplicateEMI['Collection ID'] || 'Unknown';
+          showMessage(`âŒ Cannot record: EMI #${emiNumber} already has a collection (ID: ${existingCollId})`, 'error');
+          return;
+        }
+      }
+      
+      if (batchMode) await processBatch();
+      else await processSingle();
+    });
+
+    async function processSingle() {
+      const payload = {
+        action: 'recordCollection',
+        secret: SECRET,
+        record: {
+          'Collection ID': document.getElementById('collectionId').value.trim(),
+          'Loan Number': document.getElementById('loanNo').value.trim(),
+          'Customer Name': document.getElementById('customerName').value,
+          'Collection Date': document.getElementById('collectionDate').value,
+          'EMI Amount': document.getElementById('emiAmount').value,
+          'Amount Paid': document.getElementById('amountPaid').value,
+          'EMI Month': document.getElementById('emiMonth').value,
+          'Status': document.getElementById('status').value
+        }
+      };
+
+      try {
+        showLoading(true);
+        const res = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: {'Content-Type': 'text/plain'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        showLoading(false);
+        
+        if (data.status === 'success') {
+          showMessage('Collection recorded successfully!', 'success');
+          await loadSchedule(payload.record['Loan Number']);
+          await loadExistingCollections(payload.record['Loan Number']);
+          clearForm();
+        } else {
+          showMessage(data.message || 'Failed to record', 'error');
+        }
+      } catch(e) {
+        showLoading(false);
+        showMessage('Error: ' + e.message, 'error');
+      }
+    }
+
+    async function processBatch() {
+      const loanNo = document.getElementById('loanNo').value.trim();
+      const customerName = document.getElementById('customerName').value;
+      
+      const selected = [];
+      const duplicates = [];
+      
+      currentSchedule.forEach((emi, i) => {
+        const cb = document.getElementById(`emi_${i}`);
+        if (cb && cb.checked) {
+          const cid = document.getElementById(`cid_${i}`);
+          const date = document.getElementById(`date_${i}`);
+          const amt = document.getElementById(`amt_${i}`);
+          
+          if (cid && cid.value && amt && amt.value) {
+            const collectionId = cid.value.trim();
+            
+            // FIXED: Check for duplicate Collection ID globally across ALL loans
+            const dupCollId = existingCollections.find(c => 
+              String(c['Collection ID'] || '').trim().toLowerCase() === collectionId.toLowerCase()
+            );
+            
+            // Check for duplicate EMI Number (within current loan)
+            const dupEMI = existingCollections.find(c => 
+              String(c['Loan Number'] || '').trim() === loanNo &&
+              String(c['EMI Month'] || '').trim() === String(emi['EMI Number'])
+            );
+            
+            if (dupCollId) {
+              const dupLoan = dupCollId['Loan Number'] || 'Unknown';
+              const dupEMINum = dupCollId['EMI Month'] || 'Unknown';
+              duplicates.push({
+                emiNumber: emi['EMI Number'],
+                collectionId: collectionId,
+                reason: `Collection ID "${collectionId}" already exists in Loan #${dupLoan}, EMI #${dupEMINum}`
+              });
+            } else if (dupEMI) {
+              duplicates.push({
+                emiNumber: emi['EMI Number'],
+                collectionId: dupEMI['Collection ID'] || 'Unknown',
+                reason: `EMI #${emi['EMI Number']} already has collection ID: ${dupEMI['Collection ID']}`
+              });
+            } else {
+              // Only add to selected if no duplicates found
+              selected.push({
+                collectionId: collectionId,
+                date: date.value,
+                amount: parseFloat(amt.value),
+                emiNumber: emi['EMI Number'],
+                emiAmount: parseFloat(emi['EMI Amount'])
+              });
+            }
+          }
+        }
+      });
+
+      if (selected.length === 0 && duplicates.length === 0) {
+        showMessage('Please select EMIs and fill required fields', 'error');
+        return;
+      }
+      
+      // Block submission if duplicates found
+      if (duplicates.length > 0) {
+        const dupList = duplicates.map(d => `&#8226; ${d.reason}`).join('\n');
+        alert(`âŒ Cannot process batch collection:\n\n${dupList}\n\nPlease fix the duplicates and try again.`);
+        showMessage(`Cannot process: ${duplicates.length} duplicate(s) found`, 'error');
+        return;
+      }
+
+      showLoading(true);
+      let success = 0, failed = 0;
+
+      for (const item of selected) {
+        const payload = {
+          action: 'recordCollection',
+          secret: SECRET,
+          record: {
+            'Collection ID': item.collectionId,
+            'Loan Number': loanNo,
+            'Customer Name': customerName,
+            'Collection Date': item.date,
+            'EMI Amount': item.emiAmount,
+            'Amount Paid': item.amount,
+            'EMI Month': item.emiNumber,
+            'Status': item.amount >= item.emiAmount ? 'Paid' : 'Partial'
+          }
+        };
+
+        try {
+          const res = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: {'Content-Type': 'text/plain'},
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (data.status === 'success') success++;
+          else failed++;
+        } catch(e) {
+          failed++;
+        }
+      }
+
+      showLoading(false);
+      
+      if (success > 0) {
+        showMessage(`Batch complete: ${success} recorded${failed > 0 ? `, ${failed} failed` : ''}`, success > failed ? 'success' : 'error');
+        await loadSchedule(loanNo);
+        await loadExistingCollections(loanNo);
+        if (failed === 0) clearForm();
+      } else {
+        showMessage('Batch collection failed', 'error');
+      }
+    }
+
+    // ===== TAB SWITCHING FUNCTION =====
+    function showTab(tabId) {
+      // Hide all content divs
+      document.querySelectorAll('.content').forEach(div => {
+        div.style.display = 'none';
+      });
+      
+      // Remove active class from all tabs
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // Show selected content
+      document.getElementById(tabId).style.display = 'block';
+      
+      // Add active class to clicked tab
+      event.target.classList.add('active');
+    }
+
+    // ===== COLLECTION ID SEARCH FUNCTIONS =====
+    async function searchByCollectionId() {
+      const collectionId = document.getElementById('searchCollectionId').value.trim();
+      
+      if (!collectionId) {
+        showSearchMessage('Please enter a Collection ID', 'error');
+        return;
+      }
+      
+      showLoading(true);
+      
+      try {
+        // Search in active collections (emi_collection sheet)
+        const activeUrl = `${SCRIPT_URL}?action=searchEMIRecords&secret=${SECRET}`;
+        const activeResponse = await fetch(activeUrl);
+        const activeData = await activeResponse.json();
+        
+        // Search in closed collections (closed_emi_collection sheet)
+        const closedUrl = `${SCRIPT_URL}?action=searchClosedEMIRecords&loanNo=&secret=${SECRET}`;
+        const closedResponse = await fetch(closedUrl);
+        const closedData = await closedResponse.json();
+        
+        // Combine both results
+        const allRecords = [
+          ...(activeData.records || []),
+          ...(closedData.records || [])
+        ];
+        
+        // Find the record with matching Collection ID
+        const record = allRecords.find(r => 
+          String(r['Collection ID'] || '').trim().toLowerCase() === collectionId.toLowerCase()
+        );
+        
+        showLoading(false);
+        
+        if (record) {
+          displayCollectionDetails(record);
+          showSearchMessage('Collection record found!', 'success');
+        } else {
+          document.getElementById('collectionSearchResults').style.display = 'none';
+          showSearchMessage(`No collection found with ID: ${collectionId}`, 'error');
+        }
+        
+      } catch (error) {
+        showLoading(false);
+        showSearchMessage('Error searching collection: ' + error.message, 'error');
+      }
+    }
+
+    function displayCollectionDetails(record) {
+      // Show results container
+      document.getElementById('collectionSearchResults').style.display = 'block';
+      
+      // Format date function
+      function formatDate(dateValue) {
+        if (!dateValue) return '-';
+        try {
+          const date = new Date(dateValue);
+          if (isNaN(date.getTime())) return dateValue;
+          const day = String(date.getDate()).padStart(2, '0');
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const year = date.getFullYear();
+          return `${day}-${month}-${year}`;
+        } catch {
+          return dateValue;
+        }
+      }
+      
+      // Format currency
+      function formatCurrency(amount) {
+        const num = parseFloat(amount || 0);
+        return `₹${num.toLocaleString('en-IN')}`;
+      }
+      
+      // Populate collection information
+      document.getElementById('resultCollectionId').textContent = record['Collection ID'] || '-';
+      document.getElementById('resultCollectionDate').textContent = formatDate(record['Collection Date']);
+      document.getElementById('resultAmountPaid').textContent = formatCurrency(record['Amount Paid']);
+      
+      // Status with color
+      const status = record['Status'] || 'Pending';
+      const statusSpan = document.getElementById('resultStatus');
+      statusSpan.textContent = status;
+      statusSpan.style.padding = '4px 12px';
+      statusSpan.style.borderRadius = '20px';
+      statusSpan.style.fontWeight = '600';
+      statusSpan.style.fontSize = '12px';
+      
+      if (status.toLowerCase() === 'paid') {
+        statusSpan.style.background = '#d4edda';
+        statusSpan.style.color = '#155724';
+      } else if (status.toLowerCase() === 'partial') {
+        statusSpan.style.background = '#fff3cd';
+        statusSpan.style.color = '#856404';
+      } else {
+        statusSpan.style.background = '#f8d7da';
+        statusSpan.style.color = '#721c24';
+      }
+      
+      // Populate loan information
+      document.getElementById('resultLoanNumber').textContent = record['Loan Number'] || '-';
+      document.getElementById('resultCustomerName').textContent = record['Customer Name'] || '-';
+      document.getElementById('resultEMIMonth').textContent = record['EMI Month'] || '-';
+      document.getElementById('resultEMIAmount').textContent = formatCurrency(record['EMI Amount']);
+      
+      // Additional info
+      const additionalInfo = document.getElementById('resultAdditionalInfo');
+      let infoText = `This collection was recorded on ${formatDate(record['Collection Date'])}`;
+      
+      if (record['Amount Paid'] && record['EMI Amount']) {
+        const paid = parseFloat(record['Amount Paid']);
+        const emi = parseFloat(record['EMI Amount']);
+        if (paid >= emi) {
+          infoText += ` and the full EMI amount was collected.`;
+        } else if (paid > 0) {
+          const remaining = emi - paid;
+          infoText += ` with a remaining balance of ${formatCurrency(remaining)}.`;
+        }
+      }
+      
+      additionalInfo.textContent = infoText;
+      
+      // Scroll to results
+      document.getElementById('collectionSearchResults').scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'nearest' 
+      });
+    }
+
+    function clearCollectionSearch() {
+      document.getElementById('searchCollectionId').value = '';
+      document.getElementById('collectionSearchResults').style.display = 'none';
+      document.getElementById('searchMessage').style.display = 'none';
+    }
+
+    function showSearchMessage(msg, type) {
+      const msgDiv = document.getElementById('searchMessage');
+      msgDiv.textContent = msg;
+      msgDiv.className = `message ${type}`;
+      msgDiv.style.display = 'block';
+      
+      if (type === 'success') {
+        setTimeout(() => {
+          msgDiv.style.display = 'none';
+        }, 5000);
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Anvitha Finance - Loan Data Entry</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh; 
+            padding: 20px;
+            padding-left: 100px;
+            display: flex;
+        }
+        
+        /* ===== SIDEBAR STYLES ===== */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 80px;
+            height: 100vh;
+            background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 0;
+            gap: 15px;
+            box-shadow: 2px 0 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+        
+        .sidebar-logo {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            font-weight: bold;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
+        }
+        
+        .sidebar-btn {
+            width: 55px;
+            height: 55px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: relative;
+            color: white;
+        }
+        
+        .sidebar-btn:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .sidebar-btn.home {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .sidebar-btn.refinance {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .sidebar-btn.print {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        .sidebar-btn.save {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+        
+        .sidebar-btn.reset {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+        
+        .sidebar-btn.info {
+            background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
+            margin-top: auto;
+        }
+        
+        .sidebar-tooltip {
+            position: absolute;
+            left: 70px;
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            white-space: nowrap;
+            font-size: 12px;
+            font-weight: 500;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 1001;
+        }
+        
+        .sidebar-btn:hover .sidebar-tooltip {
+            opacity: 1;
+        }
+        
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 15px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1); 
+            overflow: hidden; 
+            flex: 1;
+        }
+        
+        .header { background: linear-gradient(135deg, #2c3e50, #3498db); color: white; text-align: center; padding: 30px; }
+        .header h1 { font-size: 2.5rem; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .header p { font-size: 1.1rem; opacity: 0.9; }
+        
+        /* ===== TOAST NOTIFICATION STYLES - CENTERED ===== */
+        .toast-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            display: none;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .toast-backdrop.show {
+            display: block;
+        }
+        
+        .toast-container {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10000;
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .toast {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            margin-bottom: 10px;
+            padding: 20px 24px;
+            display: none;
+            animation: slideIn 0.3s ease-out;
+            position: relative;
+            border-left: 5px solid;
+        }
+        
+        .toast.show {
+            display: block;
+        }
+        
+        .toast.success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+        
+        .toast.error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        
+        .toast.loading {
+            border-left-color: #ffc107;
+            background: #fff3cd;
+        }
+        
+        .toast-content {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .toast-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        
+        .toast-message {
+            flex-grow: 1;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .toast.success .toast-message {
+            color: #155724;
+            font-weight: 600;
+        }
+        
+        .toast.error .toast-message {
+            color: #721c24;
+            font-weight: 600;
+        }
+        
+        .toast.loading .toast-message {
+            color: #856404;
+            font-weight: 600;
+        }
+        
+        .toast-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .toast-close:hover {
+            color: #333;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #ffc107;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: scale(0.7);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOut {
+            from {
+                transform: scale(1);
+                opacity: 1;
+            }
+            to {
+                transform: scale(0.7);
+                opacity: 0;
+            }
+        }
+        
+        .toast.hiding {
+            animation: slideOut 0.3s ease-out forwards;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* ===== END TOAST STYLES ===== */
+        
+        /* Refinance Section Styles */
+        .refinance-section {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px;
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.3);
+        }
+        .refinance-toggle {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: white;
+        }
+        .refinance-toggle label {
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+        .refinance-toggle input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        .refinance-search {
+            display: none;
+            margin-top: 15px;
+            background: rgba(255,255,255,0.2);
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .refinance-search .search-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 15px;
+            align-items: end;
+        }
+        .refinance-search input {
+            padding: 10px 15px;
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.9);
+            font-size: 14px;
+        }
+        .refinance-search button {
+            padding: 10px 20px;
+            background: white;
+            color: #f5576c;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .refinance-search button:hover {
+            background: #f5576c;
+            color: white;
+        }
+        .refinance-info {
+            display: none;
+            margin-top: 15px;
+            background: rgba(255,255,255,0.9);
+            padding: 15px;
+            border-radius: 8px;
+            color: #333;
+        }
+        .refinance-info .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .refinance-info .info-item {
+            padding: 8px;
+        }
+        .refinance-info .info-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        .refinance-info .info-value {
+            font-weight: bold;
+            color: #f5576c;
+        }
+        
+        .section { margin-bottom: 40px; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .section-header { background: linear-gradient(135deg, #f8f9fa, #e9ecef); padding: 15px 20px; border-bottom: 1px solid #e0e0e0; }
+        .section-header h3 { color: #2c3e50; font-size: 1.3rem; display: flex; align-items: center; }
+        .section-header h3::before { content: ''; width: 4px; height: 20px; background: #3498db; margin-right: 10px; border-radius: 2px; }
+        .section-content { padding: 25px; background: #fafafa; }
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-weight: 600; margin-bottom: 8px; color: #34495e; font-size: 0.95rem; }
+        .form-group input, .form-group select, .form-group textarea {
+            padding: 12px 15px; border: 2px solid #e1e8ed; border-radius: 8px; font-size: 16px; transition: all 0.3s ease; background: white;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none; border-color: #3498db; box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1); transform: translateY(-1px);
+        }
+        .form-group input:read-only {
+            background: #f0f0f0;
+            cursor: not-allowed;
+        }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .submit-section { text-align: center; margin-top: 40px; padding: 30px; background: linear-gradient(135deg, #f8f9fa, #e9ecef); border-radius: 10px; }
+        .submit-btn { background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; padding: 15px 40px; border: none; border-radius: 50px; font-size: 18px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 5px 15px rgba(46, 204, 113, 0.3); margin: 0 10px; }
+        .print-btn { background: linear-gradient(135deg, #3498db, #2980b9); color: white; padding: 15px 40px; border: none; border-radius: 50px; font-size: 18px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3); margin: 0 10px; }
+        .submit-btn:hover, .print-btn:hover { transform: translateY(-2px); }
+        .submit-btn:active, .print-btn:active { transform: translateY(0); }
+        .home-btn {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(155, 89, 182, 0.3);
+            margin: 0 10px;
+        }
+        .home-btn:hover { transform: translateY(-2px); }
+        .home-btn:active { transform: translateY(0); }
+        
+        /* OLD message styles - HIDDEN by default now */
+        .loading { display: none; text-align: center; color: #3498db; margin-top: 20px; }
+        .loading p { font-size: 18px; font-weight: 500; }
+        .success-message, .error-message { display: none; text-align: center; padding: 20px; margin-top: 20px; border-radius: 10px; font-size: 16px; font-weight: 600; }
+        .success-message { background: #d4edda; color: #155724; border: 2px solid #c3e6cb; }
+        .error-message { background: #f8d7da; color: #721c24; border: 2px solid #f5c6cb; }
+        
+        @media (max-width: 768px) {
+            .form-row { grid-template-columns: 1fr; }
+            .header h1 { font-size: 2rem; }
+            .submit-btn, .print-btn, .home-btn { padding: 12px 25px; font-size: 16px; }
+            .toast-container {
+                width: 85%;
+                max-width: 90%;
+            }
+            .toast {
+                padding: 18px 20px;
+            }
+            body {
+                padding-left: 80px;
+            }
+            .sidebar {
+                width: 60px;
+            }
+            .sidebar-btn {
+                width: 45px;
+                height: 45px;
+                font-size: 18px;
+            }
+        }
+        
+        /* Print List Layout */
+        .print-list {
+            display: none;
+        }
+        
+        .print-seal-container {
+            display: none;
+        }
+        
+        .print-seal-svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        @media print {
+            body { 
+                background: white; 
+                padding: 0; 
+                padding-left: 0;
+            }
+            .sidebar {
+                display: none !important;
+            }
+            .container { 
+                box-shadow: none; 
+                border-radius: 0;
+                max-width: 100%;
+            }
+            .submit-section, .header { 
+                display: none;
+            }
+            .refinance-section {
+                display: none;
+            }
+            
+            /* Hide form elements */
+            .form-row, .section {
+                display: none !important;
+            }
+            
+            /* Show print list */
+            .print-list {
+                display: block;
+                font-family: 'Courier New', monospace;
+                padding: 20px;
+                font-size: 12px;
+                line-height: 1.6;
+            }
+            
+            .print-list-header {
+                text-align: center;
+                font-weight: bold;
+                font-size: 16px;
+                margin-bottom: 10px;
+                border-bottom: 2px solid #000;
+                padding-bottom: 10px;
+            }
+            
+            /* Show seal stamp at bottom */
+            .print-seal-container {
+                display: block;
+                width: 120px;
+                height: 120px;
+                margin: 20px auto 0;
+                text-align: center;
+                page-break-inside: avoid;
+            }
+            
+            .print-list-section {
+                margin-bottom: 10px;
+                page-break-inside: avoid;
+            }
+            
+            .print-list-section-title {
+                font-weight: bold;
+                text-decoration: underline;
+                margin-top: 6px;
+                margin-bottom: 5px;
+                font-size: 11px;
+            }
+            
+            .print-list-item {
+                display: flex;
+                margin-bottom: 2px;
+                font-size: 11px;
+            }
+            
+            .print-list-label {
+                font-weight: bold;
+                width: 45%;
+                word-wrap: break-word;
+            }
+            
+            .print-list-value {
+                width: 55%;
+                word-wrap: break-word;
+                white-space: pre-wrap;
+            }
+            
+            .print-list-divider {
+                border-bottom: 1px solid #999;
+                margin: 5px 0;
+            }
+            
+            /* Optimize for single A4 page */
+            @page {
+                size: A4;
+                margin: 10mm;
+            }
+            
+            html, body {
+                width: 210mm;
+                height: 297mm;
+            }
+            
+            .container {
+                max-height: 297mm;
+                overflow: hidden;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+        <div class="sidebar-logo">💰</div>
+        <button class="sidebar-btn home" onclick="window.location.href='home_page.html'">
+            <span>🏠</span>
+            <div class="sidebar-tooltip">Home</div>
+        </button>
+        <button class="sidebar-btn refinance" onclick="toggleRefinanceSidebar()">
+            <span>🔄</span>
+            <div class="sidebar-tooltip">Refinance</div>
+        </button>
+        <button class="sidebar-btn save" onclick="document.getElementById('loanForm').dispatchEvent(new Event('submit'))">
+            <span>💾</span>
+            <div class="sidebar-tooltip">Save</div>
+        </button>
+        <button class="sidebar-btn print" onclick="preparePrintLayout(); setTimeout(() => window.print(), 100);">
+            <span>🖨️</span>
+            <div class="sidebar-tooltip">Print</div>
+        </button>
+        <button class="sidebar-btn reset" onclick="resetForm()">
+            <span>↻</span>
+            <div class="sidebar-tooltip">Reset</div>
+        </button>
+        <button class="sidebar-btn info" onclick="showInfo()">
+            <span>ℹ️</span>
+            <div class="sidebar-tooltip">Info</div>
+        </button>
+    </div>
+
+    <!-- Toast Backdrop -->
+    <div class="toast-backdrop" id="toastBackdrop"></div>
+    
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🏍️ ANVITHA FINANCE</h1>
+            <p>Two Wheeler Loan Management - Data Entry & Refinance</p>
+        </div>
+
+        <!-- Seal Stamp SVG (Hidden, shown on print) -->
+        <svg id="sealStamp" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" style="display:none;">
+            <defs>
+                <style>
+                    .seal-outer { fill: none; stroke: #d32f2f; stroke-width: 8; }
+                    .seal-inner { fill: none; stroke: #d32f2f; stroke-width: 4; }
+                    .seal-text { font-family: 'Arial', sans-serif; font-weight: bold; fill: #d32f2f; }
+                    .seal-center { fill: #d32f2f; }
+                </style>
+            </defs>
+            
+            <!-- Outer circle -->
+            <circle cx="150" cy="150" r="145" class="seal-outer"/>
+            
+            <!-- Inner circle -->
+            <circle cx="150" cy="150" r="135" class="seal-inner"/>
+            
+            <!-- Center design -->
+            <circle cx="150" cy="150" r="80" class="seal-center" opacity="0.1"/>
+            
+            <!-- Bike icon in center -->
+            <text x="150" y="160" font-size="48" text-anchor="middle" class="seal-text">🏍️</text>
+            
+            <!-- Text around the circle -->
+            <defs>
+                <path id="circlePath" d="M 30, 150 A 120, 120 0 0, 1 270, 150" fill="none"/>
+            </defs>
+            <text font-size="18" class="seal-text" letter-spacing="4" font-weight="bold">
+                <textPath href="#circlePath" startOffset="50%" text-anchor="middle">
+                    ANVITHA FINANCE
+                </textPath>
+            </text>
+            
+            <!-- Bottom text -->
+            <text x="150" y="255" font-size="14" text-anchor="middle" class="seal-text" font-style="italic">
+                Two Wheeler Loans
+            </text>
+        </svg>
+
+        <!-- Print List (Hidden, shown on print) -->
+        <div id="printListContainer"></div>
+
+        <!-- Refinance Section -->
+        <div class="refinance-section">
+            <div class="refinance-toggle">
+                <label>
+                    <input type="checkbox" id="refinanceMode" onchange="toggleRefinanceMode()">
+                    🔄 Refinance Existing Closed Loan
+                </label>
+            </div>
+            
+            <div id="refinanceSearch" class="refinance-search">
+                <div class="search-row">
+                    <div>
+                        <input type="text" id="refinanceSearchValue" placeholder="Enter Loan Number to search closed loans">
+                    </div>
+                    <button onclick="searchForRefinance()">🔍 Search</button>
+                </div>
+                <button onclick="clearRefinanceData()" style="margin-top:10px; background:rgba(255,255,255,0.3); color:white;">Clear</button>
+            </div>
+            
+            <div id="refinanceInfoBox" class="refinance-info">
+                <strong style="display:block; margin-bottom:10px;">📋 Original Loan Details</strong>
+                <div id="refinanceInfoGrid" class="info-grid"></div>
+            </div>
+        </div>
+
+        <form id="loanForm">
+            <!-- Customer Information Section -->
+            <div class="section">
+                <div class="section-header"><h3>👤 Customer Information</h3></div>
+                <div class="section-content">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="customerName">Name of the Customer *</label>
+                            <input type="text" id="customerName" name="customerName" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="mobile">Mobile No *</label>
+                            <input type="tel" id="mobile" name="mobile" pattern="[0-9]{10}" maxlength="10" required />
+                            <small style="color:#e74c3c;display:none" id="mobileError">Please enter exactly 10 digits</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="relation">S/o W/o *</label>
+                            <input type="text" id="relation" name="relation" required />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="village">Name of the Village *</label>
+                            <input type="text" id="village" name="village" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="address">Address *</label>
+                            <textarea id="address" name="address" required></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loan Details Section -->
+            <div class="section">
+                <div class="section-header"><h3>💰 Loan Details</h3></div>
+                <div class="section-content">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="loanNo">Loan No *</label>
+                            <input type="text" id="loanNo" name="loanNo" required />
+                            <small style="color:#e74c3c;display:none" id="loanNoError">This loan number already exists</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="loanDate">Date of Loan *</label>
+                            <input type="date" id="loanDate" name="loanDate" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="loanAmount">Loan Amount *</label>
+                            <input type="number" id="loanAmount" name="loanAmount" step="0.01" required />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="interestRate">Rate of Interest (%) *</label>
+                            <input type="number" id="interestRate" name="interestRate" step="0.01" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="installments">No. of Monthly Installments *</label>
+                            <input type="number" id="installments" name="installments" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="emiType">EMI Type</label>
+                            <select id="emiType" name="emiType">
+                                <option value="flat">Flat (Simple Interest)</option>
+                                <option value="reducing">Reducing Balance (Standard)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="emiPerMonth">EMI per Month</label>
+                            <input type="number" id="emiPerMonth" name="emiPerMonth" step="0.01" readonly style="background:#e3f2fd;border:2px solid #2196f3;font-weight:bold;" />
+                        </div>
+                        <div class="form-group">
+                            <label for="interestPerMonth">Interest per Month</label>
+                            <input type="number" id="interestPerMonth" name="interestPerMonth" step="0.01" readonly style="background:#f0f0f0;" />
+                        </div>
+                        <div class="form-group">
+                            <label for="principalPerMonth">Principal per Month</label>
+                            <input type="number" id="principalPerMonth" name="principalPerMonth" step="0.01" readonly style="background:#f0f0f0;" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="totalEMI">Total EMI Amount (All Months)</label>
+                            <input type="number" id="totalEMI" name="totalEMI" step="0.01" readonly style="background:#f0f0f0;" />
+                        </div>
+                        <div class="form-group">
+                            <label for="grandTotalInterest">Grand Total Interest</label>
+                            <input type="number" id="grandTotalInterest" name="grandTotalInterest" step="0.01" readonly style="background:#f0f0f0;" />
+                        </div>
+                        <div class="form-group">
+                            <label for="grandTotalPrincipal">Grand Total Principal</label>
+                            <input type="number" id="grandTotalPrincipal" name="grandTotalPrincipal" step="0.01" readonly style="background:#f0f0f0;" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="totalLoanDue">Total Loan Due Amount (Principal + Interest)</label>
+                            <input type="number" id="totalLoanDue" name="totalLoanDue" step="0.01" readonly style="background:#fff3cd;border:2px solid #ff9800;font-weight:bold;" />
+                        </div>
+                        <div class="form-group">
+                            <label for="installmentStartDate">Date of Installment Starting</label>
+                            <input type="date" id="installmentStartDate" name="installmentStartDate" readonly style="background:#f8f9fa;" />
+                        </div>
+                        <div class="form-group">
+                            <label for="lastEMIDate">Last EMI Date</label>
+                            <input type="date" id="lastEMIDate" name="lastEMIDate" readonly style="background:#f8f9fa;border:3px solid #ff0000;" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="totalAmountPaid">Total Amount to be Paid</label>
+                            <input type="number" id="totalAmountPaid" name="totalAmountPaid" step="0.01" readonly style="background:#f8f9fa;" />
+                        </div>
+                        <div class="form-group">
+                            <label for="difference">Total Interest Amount</label>
+                            <input type="number" id="difference" name="difference" step="0.01" readonly style="background:#f0f0f0;" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vehicle Details Section -->
+            <div class="section">
+                <div class="section-header"><h3>🏍️ Vehicle Details</h3></div>
+                <div class="section-content">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="vehicleMake">Make of Vehicle *</label>
+                            <input type="text" id="vehicleMake" name="vehicleMake" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="manufacturingYear">Year of Manufacturing *</label>
+                            <input type="month" id="manufacturingYear" name="manufacturingYear" min="1990-01" max="2030-12" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="registrationNumber">Registration Number *</label>
+                            <input type="text" id="registrationNumber" name="registrationNumber" required />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="insuranceCompany">Name of Insurance Company</label>
+                            <input type="text" id="insuranceCompany" name="insuranceCompany" />
+                        </div>
+                        <div class="form-group">
+                            <label for="insuranceValidUpto">Insurance Valid Upto</label>
+                            <input type="date" id="insuranceValidUpto" name="insuranceValidUpto" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="chassisNo">Chassis No *</label>
+                            <input type="text" id="chassisNo" name="chassisNo" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="engineNo">Engine No *</label>
+                            <input type="text" id="engineNo" name="engineNo" required />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Surety Holder Section -->
+            <div class="section">
+                <div class="section-header"><h3>🤝 Surety Holder Details</h3></div>
+                <div class="section-content">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="suretyHolderName">Name of Surety Holder *</label>
+                            <input type="text" id="suretyHolderName" name="suretyHolderName" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="suretyRelation">Surety S/O W/O *</label>
+                            <input type="text" id="suretyRelation" name="suretyRelation" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="suretyMobile">Surety Mobile *</label>
+                            <input type="tel" id="suretyMobile" name="suretyMobile" pattern="[0-9]{10}" maxlength="10" required />
+                            <small style="color:#e74c3c;display:none" id="suretyMobileError">Please enter exactly 10 digits</small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="suretyAddress">Surety Address *</label>
+                            <textarea id="suretyAddress" name="suretyAddress" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="thumbPrint">Refinance / Thumb Yes/No *</label>
+                            <select id="thumbPrint" name="thumbPrint" required>
+                                <option value="">Select...</option>
+                                <option value="Yes">Yes</option>
+                                <option value="No">No</option>
+                                <option value="Refinance">Refinance</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="submit-section">
+                <button type="submit" class="submit-btn">💾 Save Loan Data</button>
+                <button type="button" class="print-btn" onclick="window.print()">🖨️ Print Receipt</button>
+                
+                <!-- Keep old message divs for compatibility (now hidden by default) -->
+                <div class="loading" id="loading"><p>🔤 Saving data to Google Sheets...</p></div>
+                <div class="success-message" id="successMessage"><p>✅ Data saved successfully!</p></div>
+                <div class="error-message" id="errorMessage"><p>❌ Error saving data.</p></div>
+            </div>
+        </form>
+    </div>
+
+<script>
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzPBMML2B8a6dMXMFL78dBIEeSRGG8yEhk2xn9BBEO_kx1kfan_Re73qOsIKAsjkQ8/exec';
+const SECRET = 'ANVITHA_SUPER_SECRET_2025';
+
+let existingLoanNumbers = [];
+let isRefinanceMode = false;
+let originalLoanData = null;
+
+// ===== TOAST NOTIFICATION SYSTEM =====
+function showToast(message, type = 'success', duration = 5000) {
+    const container = document.getElementById('toastContainer');
+    const backdrop = document.getElementById('toastBackdrop');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    let icon = '✓';
+    if (type === 'error') icon = '✕';
+    if (type === 'loading') icon = '<div class="spinner"></div>';
+    
+    toast.innerHTML = `
+        <div class="toast-content">
+            <div class="toast-icon">${icon}</div>
+            <div class="toast-message">${message}</div>
+            ${type !== 'loading' ? '<button class="toast-close" onclick="closeToast(this)">×</button>' : ''}
+        </div>
+    `;
+    
+    container.appendChild(toast);
+    backdrop.classList.add('show');
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    if (type !== 'loading' && duration > 0) {
+        setTimeout(() => hideToast(toast), duration);
+    }
+    
+    return toast;
+}
+
+function hideToast(toast) {
+    const backdrop = document.getElementById('toastBackdrop');
+    const container = document.getElementById('toastContainer');
+    
+    toast.classList.add('hiding');
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+        }
+        if (container.children.length === 0) {
+            backdrop.classList.remove('show');
+        }
+    }, 300);
+}
+
+function closeToast(button) {
+    const toast = button.closest('.toast');
+    hideToast(toast);
+}
+
+function hideLoadingToasts() {
+    const loadingToasts = document.querySelectorAll('.toast.loading');
+    loadingToasts.forEach(toast => hideToast(toast));
+}
+
+// ===== SIDEBAR FUNCTIONS =====
+function toggleRefinanceSidebar() {
+    const checkbox = document.getElementById('refinanceMode');
+    checkbox.checked = !checkbox.checked;
+    toggleRefinanceMode();
+}
+
+function resetForm() {
+    if (confirm('Are you sure you want to reset the entire form?')) {
+        document.getElementById('loanForm').reset();
+        isRefinanceMode = false;
+        originalLoanData = null;
+        document.getElementById('refinanceMode').checked = false;
+        document.getElementById('refinanceSearch').style.display = 'none';
+        document.getElementById('refinanceInfoBox').style.display = 'none';
+        showToast('Form has been reset', 'success', 3000);
+    }
+}
+
+function showInfo() {
+    showToast(
+        'Anvitha Finance - Two Wheeler Loan Management<br>' +
+        '📋 Version 2.0<br>' +
+        '✨ Features: Loan Entry, Refinance, Print<br>' +
+        '💾 Data saved to Google Sheets<br>' +
+        '📱 Mobile Responsive Design',
+        'success',
+        8000
+    );
+}
+
+// ===== REFINANCE FUNCTIONS =====
+function toggleRefinanceMode() {
+    isRefinanceMode = document.getElementById('refinanceMode').checked;
+    const refinanceSearch = document.getElementById('refinanceSearch');
+    const refinanceInfoBox = document.getElementById('refinanceInfoBox');
+    
+    if (isRefinanceMode) {
+        refinanceSearch.style.display = 'block';
+        document.getElementById('loanNo').placeholder = 'Will auto-generate (OLD_LOAN_NO-R1, R2, etc.)';
+        document.getElementById('loanNo').readOnly = true;
+        showToast('Refinance mode enabled. Search for a closed loan to continue.', 'success', 3000);
+    } else {
+        refinanceSearch.style.display = 'none';
+        refinanceInfoBox.style.display = 'none';
+        document.getElementById('loanNo').placeholder = '';
+        document.getElementById('loanNo').readOnly = false;
+        document.getElementById('loanForm').reset();
+        originalLoanData = null;
+    }
+}
+
+async function searchForRefinance() {
+    const searchValue = document.getElementById('refinanceSearchValue').value.trim();
+    if (!searchValue) {
+        showToast('Please enter a loan number to search', 'error', 3000);
+        return;
+    }
+    
+    const loadingToast = showToast('🔍 Searching for closed loan...', 'loading', 0);
+    
+    try {
+        const response = await fetch(`${WEB_APP_URL}?action=searchClosedLoan&loanNo=${encodeURIComponent(searchValue)}&secret=${SECRET}`);
+        const result = await response.json();
+        
+        hideLoadingToasts();
+        
+        if (result.status === 'success' && result.loan) {
+            await populateRefinanceData(result.loan);
+            showToast('✅ Closed loan found! Data populated for refinancing.', 'success', 5000);
+        } else {
+            showToast('❌ No closed loan found with this number.', 'error', 5000);
+        }
+    } catch (error) {
+        hideLoadingToasts();
+        showToast(`❌ Error searching: ${error.message}`, 'error', 5000);
+    }
+}
+
+async function populateRefinanceData(loanData) {
+    originalLoanData = loanData;
+    
+    // Populate customer details
+    document.getElementById('customerName').value = loanData['Name of the customer'] || '';
+    document.getElementById('mobile').value = loanData['Mobile No'] || '';
+    document.getElementById('relation').value = loanData['S/o W/o'] || '';
+    document.getElementById('village').value = loanData['Name of the village'] || '';
+    document.getElementById('address').value = loanData['Address'] || '';
+    
+    // Populate vehicle details
+    document.getElementById('vehicleMake').value = loanData['Make of vehicle'] || '';
+    
+    // Handle Year of Manufacturing
+    let yearValue = loanData['Year of manufacturing'] || '';
+    if (yearValue) {
+        try {
+            if (yearValue instanceof Date) {
+                const year = yearValue.getFullYear();
+                const month = String(yearValue.getMonth() + 1).padStart(2, '0');
+                yearValue = `${year}-${month}`;
+            } else if (typeof yearValue === 'string') {
+                if (yearValue.includes('T') || yearValue.includes('Z')) {
+                    const dateObj = new Date(yearValue);
+                    if (!isNaN(dateObj.getTime())) {
+                        const year = dateObj.getFullYear();
+                        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                        yearValue = `${year}-${month}`;
+                    }
+                } else if (yearValue.match(/^[a-z]{3}-\d{2,4}$/i)) {
+                    const monthMap = {
+                        'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
+                        'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
+                        'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+                    };
+                    const parts = yearValue.split('-');
+                    const monthName = parts[0].toLowerCase();
+                    let year = parts[1];
+                    if (year.length === 2) year = '20' + year;
+                    const month = monthMap[monthName];
+                    if (month) yearValue = `${year}-${month}`;
+                }
+            }
+        } catch (e) {
+            console.error('Error parsing manufacturing year:', e);
+            yearValue = '';
+        }
+    }
+    document.getElementById('manufacturingYear').value = yearValue;
+    
+    document.getElementById('registrationNumber').value = loanData['Reg No'] || '';
+    document.getElementById('insuranceCompany').value = loanData['Name of Ins Co'] || '';
+    
+    // Handle Insurance Valid Upto
+    let insDate = loanData['Ins valid upto'] || '';
+    if (insDate) {
+        try {
+            if (insDate instanceof Date) {
+                insDate = insDate.toISOString().split('T')[0];
+            } else if (typeof insDate === 'string') {
+                if (insDate.includes('T') || insDate.includes('Z')) {
+                    const dateObj = new Date(insDate);
+                    if (!isNaN(dateObj.getTime())) {
+                        insDate = dateObj.toISOString().split('T')[0];
+                    }
+                } else if (insDate.match(/^\d{2}-\d{2}-\d{4}$/)) {
+                    const parts = insDate.split('-');
+                    insDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                }
+            }
+        } catch (e) {
+            console.error('Error parsing insurance date:', e);
+            insDate = '';
+        }
+    }
+    document.getElementById('insuranceValidUpto').value = insDate;
+    
+    document.getElementById('chassisNo').value = loanData['Chassis No'] || '';
+    document.getElementById('engineNo').value = loanData['Engine No'] || '';
+    
+    // Populate surety details
+    document.getElementById('suretyHolderName').value = loanData['Name of the surety holder'] || '';
+    document.getElementById('suretyRelation').value = loanData['Surety S/O W/O'] || '';
+    
+    let suretyMobile = loanData['Surety Mobile'] || '';
+    if (suretyMobile && typeof suretyMobile === 'number') {
+        suretyMobile = String(suretyMobile);
+    }
+    document.getElementById('suretyMobile').value = suretyMobile;
+    
+    document.getElementById('suretyAddress').value = loanData['Surety Address'] || '';
+    document.getElementById('thumbPrint').value = 'Refinance';
+    
+    // Loan Number: Leave empty for MANUAL ENTRY
+    document.getElementById('loanNo').value = '';
+    document.getElementById('loanNo').readOnly = false;
+    document.getElementById('loanNo').placeholder = 'Enter new loan number';
+    
+    // Set today's date as loan date
+    document.getElementById('loanDate').value = new Date().toISOString().split('T')[0];
+    
+    // Clear loan amount fields
+    document.getElementById('loanAmount').value = '';
+    document.getElementById('interestRate').value = '';
+    document.getElementById('installments').value = '';
+    
+    // Show refinance info box
+    const oldLoanNo = loanData['Loan No'] || loanData['Loan Number'];
+    displayRefinanceInfo(loanData, '(To be entered manually)');
+    
+    document.getElementById('loanNo').focus();
+}
+
+async function getRefinanceCount(oldLoanNo) {
+    try {
+        const url = `${WEB_APP_URL}?action=getRefinanceCount&loanNo=${encodeURIComponent(oldLoanNo)}&secret=${SECRET}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        return (data.count || 0) + 1;
+    } catch (error) {
+        console.error('Error getting refinance count:', error);
+        return 1;
+    }
+}
+
+function displayRefinanceInfo(loanData, newLoanNo) {
+    const infoBox = document.getElementById('refinanceInfoBox');
+    const infoGrid = document.getElementById('refinanceInfoGrid');
+    
+    infoGrid.innerHTML = `
+        <div class="info-item">
+            <div class="info-label">Original Loan No</div>
+            <div class="info-value">${loanData['Loan No'] || 'N/A'}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">New Loan No</div>
+            <div class="info-value">${newLoanNo}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Customer</div>
+            <div class="info-value">${loanData['Name of the customer'] || 'N/A'}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Vehicle</div>
+            <div class="info-value">${loanData['Registration Number'] || 'N/A'}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Original Loan Amount</div>
+            <div class="info-value">₹${(loanData['Loan Amount'] || 0).toLocaleString('en-IN')}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Closure Date</div>
+            <div class="info-value">${loanData['Loan Closure Date'] || 'Completed'}</div>
+        </div>
+    `;
+    
+    infoBox.style.display = 'block';
+}
+
+function clearRefinanceData() {
+    originalLoanData = null;
+    document.getElementById('refinanceSearchValue').value = '';
+    document.getElementById('refinanceInfoBox').style.display = 'none';
+    document.getElementById('loanForm').reset();
+}
+
+// ===== VALIDATION FUNCTIONS =====
+async function fetchExistingLoanNumbers() {
+  try {
+    const url = `${WEB_APP_URL}?action=getLoanNumbers&secret=${SECRET}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (data.status === 'success' && Array.isArray(data.loanNumbers)) {
+      existingLoanNumbers = data.loanNumbers.map(ln => String(ln).toLowerCase());
+    }
+  } catch (err) {
+    console.error('Error fetching loan numbers:', err);
+  }
+}
+
+function validateLoanNumber() {
+  if (isRefinanceMode) return true;
+  
+  const loanNo = document.getElementById('loanNo').value.trim().toLowerCase();
+  const errorEl = document.getElementById('loanNoError');
+  
+  if (loanNo && existingLoanNumbers.includes(loanNo)) {
+    errorEl.style.display = 'block';
+    return false;
+  } else {
+    errorEl.style.display = 'none';
+    return true;
+  }
+}
+
+function validateMobile(inputId, errorId) {
+  const mobileInput = document.getElementById(inputId);
+  const errorElement = document.getElementById(errorId);
+  const mobileValue = mobileInput.value.replace(/\D/g, '');
+  const ok = !(mobileValue.length > 0 && mobileValue.length !== 10);
+  errorElement.style.display = ok ? 'none' : 'block';
+  mobileInput.style.borderColor = ok ? '#e1e8ed' : '#e74c3c';
+  return ok;
+}
+
+function onlyDigits(el) { 
+    el.value = el.value.replace(/\D/g, ''); 
+}
+
+function toUpperTrim(el) { 
+    el.value = el.value.toUpperCase().trim(); 
+}
+
+// ===== CALCULATION FUNCTIONS =====
+function calculateInstallmentStartDate() {
+  const loanDate = document.getElementById('loanDate').value;
+  if (!loanDate) return;
+  
+  const date = new Date(loanDate);
+  date.setMonth(date.getMonth() + 1);
+  document.getElementById('installmentStartDate').value = date.toISOString().split('T')[0];
+  
+  calculateLastEMIDate();
+}
+
+function calculateLastEMIDate() {
+  const startDate = document.getElementById('installmentStartDate').value;
+  const installments = parseInt(document.getElementById('installments').value) || 0;
+  
+  if (!startDate || !installments) return;
+  
+  const date = new Date(startDate);
+  date.setMonth(date.getMonth() + installments - 1);
+  document.getElementById('lastEMIDate').value = date.toISOString().split('T')[0];
+}
+
+function calculateTotals() {
+  const loanAmount = parseFloat(document.getElementById('loanAmount').value) || 0;
+  const interestRate = parseFloat(document.getElementById('interestRate').value) || 0;
+  const installments = parseInt(document.getElementById('installments').value) || 0;
+  const emiType = document.getElementById('emiType').value;
+  
+  if (!loanAmount || !interestRate || !installments) return;
+  
+  let monthlyInterest, monthlyPrincipal, totalInterest, totalPrincipal, totalAmount, emiAmount;
+  
+  if (emiType === 'flat') {
+    const annualInterestRate = interestRate / 100;
+    const monthlyInterestRate = annualInterestRate / 12;
+    
+    monthlyInterest = loanAmount * monthlyInterestRate;
+    totalInterest = monthlyInterest * installments;
+    
+    monthlyPrincipal = loanAmount / installments;
+    totalPrincipal = loanAmount;
+    emiAmount = monthlyInterest + monthlyPrincipal;
+    
+  } else {
+    const monthlyRate = interestRate / 100 / 12;
+    emiAmount = loanAmount * monthlyRate * Math.pow(1 + monthlyRate, installments) / 
+                (Math.pow(1 + monthlyRate, installments) - 1);
+    totalAmount = emiAmount * installments;
+    totalInterest = totalAmount - loanAmount;
+    totalPrincipal = loanAmount;
+    monthlyInterest = totalInterest / installments;
+    monthlyPrincipal = totalPrincipal / installments;
+  }
+  
+  emiAmount = Math.round(emiAmount / 10) * 10;
+  monthlyPrincipal = emiAmount - monthlyInterest;
+  
+  const totalEMI = emiAmount * installments;
+  totalAmount = totalEMI;
+  const difference = totalAmount - loanAmount;
+  totalInterest = difference;
+  
+  document.getElementById('emiPerMonth').value = emiAmount.toFixed(2);
+  document.getElementById('interestPerMonth').value = monthlyInterest.toFixed(2);
+  document.getElementById('principalPerMonth').value = monthlyPrincipal.toFixed(2);
+  document.getElementById('totalEMI').value = totalEMI.toFixed(2);
+  document.getElementById('grandTotalInterest').value = totalInterest.toFixed(2);
+  document.getElementById('grandTotalPrincipal').value = totalPrincipal.toFixed(2);
+  document.getElementById('totalLoanDue').value = totalAmount.toFixed(2);
+  document.getElementById('totalAmountPaid').value = totalAmount.toFixed(2);
+  document.getElementById('difference').value = difference.toFixed(2);
+}
+
+// ===== FORM SUBMIT HANDLER =====
+document.getElementById('loanForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  
+  // Validate that required fields are not empty
+  const requiredFields = [
+    { id: 'customerName', label: 'Customer Name' },
+    { id: 'mobile', label: 'Mobile Number' },
+    { id: 'relation', label: 'S/o W/o' },
+    { id: 'village', label: 'Village Name' },
+    { id: 'address', label: 'Address' },
+    { id: 'loanNo', label: 'Loan Number' },
+    { id: 'loanDate', label: 'Loan Date' },
+    { id: 'loanAmount', label: 'Loan Amount' },
+    { id: 'interestRate', label: 'Interest Rate' },
+    { id: 'installments', label: 'Number of Installments' },
+    { id: 'vehicleMake', label: 'Vehicle Make' },
+    { id: 'manufacturingYear', label: 'Manufacturing Year' },
+    { id: 'registrationNumber', label: 'Registration Number' },
+    { id: 'chassisNo', label: 'Chassis Number' },
+    { id: 'engineNo', label: 'Engine Number' },
+    { id: 'suretyHolderName', label: 'Surety Holder Name' },
+    { id: 'suretyRelation', label: 'Surety S/O W/O' },
+    { id: 'suretyMobile', label: 'Surety Mobile' },
+    { id: 'suretyAddress', label: 'Surety Address' },
+    { id: 'thumbPrint', label: 'Thumb Yes/No/Refinance' }
+  ];
+  
+  const emptyFields = [];
+  requiredFields.forEach(field => {
+    const element = document.getElementById(field.id);
+    const value = element ? element.value.toString().trim() : '';
+    if (!value) {
+      emptyFields.push(field.label);
+    }
+  });
+  
+  if (emptyFields.length > 0) {
+    showToast(
+      `❌ Please fill all required fields:\n• ${emptyFields.join('\n• ')}`,
+      'error',
+      10000
+    );
+    return;
+  }
+  
+  const customerMobileValid = validateMobile('mobile', 'mobileError');
+  const suretyMobileValid = validateMobile('suretyMobile', 'suretyMobileError');
+  const loanNoValid = validateLoanNumber();
+  
+  if (!customerMobileValid || !suretyMobileValid || !loanNoValid) {
+    showToast(
+      'Please fix the following errors:\n' +
+      (!customerMobileValid ? '- Customer mobile number must be exactly 10 digits\n' : '') +
+      (!suretyMobileValid ? '- Surety mobile number must be exactly 10 digits\n' : '') +
+      (!loanNoValid ? '- Loan number already exists, please use a different number\n' : ''),
+      'error',
+      7000
+    );
+    return;
+  }
+  
+  const formData = new FormData(this);
+  const data = {};
+  for (const [k, v] of formData.entries()) data[k] = (v || '').toString().trim();
+  
+  ['registrationNumber', 'chassisNo', 'engineNo'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el && el.value) el.value = el.value.toUpperCase().trim();
+    data[id] = document.getElementById(id).value;
+  });
+  
+  const loading = document.getElementById('loading');
+  const successMessage = document.getElementById('successMessage');
+  const errorMessage = document.getElementById('errorMessage');
+  successMessage.style.display = 'none';
+  errorMessage.style.display = 'none';
+  loading.style.display = 'none';
+  
+  const loadingToast = showToast('💾 Saving loan data to Google Sheets... Please wait', 'loading', 0);
+  
+  const rowData = [
+    1, data.customerName || '', data.mobile || '', data.relation || '',
+    data.village || '', data.address || '', data.loanNo || '', data.loanDate || '',
+    data.loanAmount || '', data.interestRate || '', data.installments || '',
+    data.emiPerMonth || '', data.interestPerMonth || '', data.principalPerMonth || '',
+    data.totalEMI || '', data.grandTotalInterest || '', data.grandTotalPrincipal || '',
+    data.totalLoanDue || '', data.installmentStartDate || '', data.lastEMIDate || '',
+    data.totalAmountPaid || '', data.difference || '', data.vehicleMake || '',
+    data.manufacturingYear || '', data.registrationNumber || '', data.insuranceCompany || '',
+    data.insuranceValidUpto || '', data.chassisNo || '', data.engineNo || '',
+    data.suretyHolderName || '', data.suretyRelation || '', data.suretyMobile || '',
+    data.suretyAddress || '', data.thumbPrint || ''
+  ];
+  
+  try {
+    const response = await fetch(WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ 
+        secret: SECRET, 
+        data: rowData,
+        isRefinance: isRefinanceMode,
+        originalLoanNo: originalLoanData ? originalLoanData['Loan No'] : null
+      })
+    });
+    
+    const result = await response.json();
+    hideLoadingToasts();
+    
+    if (result.status === 'success') {
+      const refinanceText = isRefinanceMode ? ' (Refinanced Loan)' : '';
+      showToast(
+        `✅ Loan saved successfully!<br><br>📋 S.No: ${result.sNo}<br>🔢 Loan Number: ${data.loanNo}${refinanceText}`,
+        'success',
+        8000
+      );
+      
+      const loanNo = data.loanNo;
+      if (loanNo && !existingLoanNumbers.includes(loanNo.toLowerCase())) {
+        existingLoanNumbers.push(loanNo.toLowerCase());
+      }
+      document.getElementById('loanForm').reset();
+      
+      if (isRefinanceMode) {
+        document.getElementById('refinanceMode').checked = false;
+        toggleRefinanceMode();
+      }
+    } else {
+      showToast(`❌ Error: ${result.message || 'Save failed'}`, 'error', 7000);
+    }
+  } catch (err) {
+    console.error(err);
+    hideLoadingToasts();
+    showToast(`❌ Error: ${err.message}<br>Please verify your Google Apps Script deployment.`, 'error', 10000);
+  }
+});
+
+// ===== PRINT LIST GENERATION =====
+function generatePrintList() {
+  const data = {};
+  const form = document.getElementById('loanForm');
+  const formData = new FormData(form);
+  
+  for (const [k, v] of formData.entries()) {
+    data[k] = (v || '').toString().trim();
+  }
+  
+  const printListHTML = `
+    <div class="print-list">
+      <div class="print-list-header">
+        ANVITHA FINANCE - TWO WHEELER LOAN DOCUMENT
+      </div>
+      
+      <div class="print-list-section">
+        <div class="print-list-section-title">CUSTOMER INFORMATION</div>
+        <div class="print-list-item">
+          <div class="print-list-label">Name of Customer:</div>
+          <div class="print-list-value">${data.customerName || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Mobile Number:</div>
+          <div class="print-list-value">${data.mobile || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">S/O W/O:</div>
+          <div class="print-list-value">${data.relation || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Village:</div>
+          <div class="print-list-value">${data.village || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Address:</div>
+          <div class="print-list-value">${data.address || ''}</div>
+        </div>
+      </div>
+      
+      <div class="print-list-divider"></div>
+      
+      <div class="print-list-section">
+        <div class="print-list-section-title">LOAN DETAILS</div>
+        <div class="print-list-item">
+          <div class="print-list-label">Loan Number:</div>
+          <div class="print-list-value">${data.loanNo || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Date of Loan:</div>
+          <div class="print-list-value">${data.loanDate || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Loan Amount:</div>
+          <div class="print-list-value">₹${(parseFloat(data.loanAmount) || 0).toLocaleString('en-IN')}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Rate of Interest (%):</div>
+          <div class="print-list-value">${data.interestRate || ''}%</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Number of Installments:</div>
+          <div class="print-list-value">${data.installments || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">EMI Type:</div>
+          <div class="print-list-value">${data.emiType || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">EMI per Month:</div>
+          <div class="print-list-value">₹${(parseFloat(data.emiPerMonth) || 0).toLocaleString('en-IN')}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Interest per Month:</div>
+          <div class="print-list-value">₹${(parseFloat(data.interestPerMonth) || 0).toLocaleString('en-IN')}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Principal per Month:</div>
+          <div class="print-list-value">₹${(parseFloat(data.principalPerMonth) || 0).toLocaleString('en-IN')}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Total EMI Amount (All Months):</div>
+          <div class="print-list-value">₹${(parseFloat(data.totalEMI) || 0).toLocaleString('en-IN')}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Grand Total Interest:</div>
+          <div class="print-list-value">₹${(parseFloat(data.grandTotalInterest) || 0).toLocaleString('en-IN')}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Grand Total Principal:</div>
+          <div class="print-list-value">₹${(parseFloat(data.grandTotalPrincipal) || 0).toLocaleString('en-IN')}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Total Loan Due (Principal + Interest):</div>
+          <div class="print-list-value">₹${(parseFloat(data.totalLoanDue) || 0).toLocaleString('en-IN')}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Installment Start Date:</div>
+          <div class="print-list-value">${data.installmentStartDate || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Last EMI Date:</div>
+          <div class="print-list-value">${data.lastEMIDate || ''}</div>
+        </div>
+      </div>
+      
+      <div class="print-list-divider"></div>
+      
+      <div class="print-list-section">
+        <div class="print-list-section-title">VEHICLE DETAILS</div>
+        <div class="print-list-item">
+          <div class="print-list-label">Make of Vehicle:</div>
+          <div class="print-list-value">${data.vehicleMake || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Year of Manufacturing:</div>
+          <div class="print-list-value">${data.manufacturingYear || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Registration Number:</div>
+          <div class="print-list-value">${data.registrationNumber || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Insurance Company:</div>
+          <div class="print-list-value">${data.insuranceCompany || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Insurance Valid Upto:</div>
+          <div class="print-list-value">${data.insuranceValidUpto || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Chassis Number:</div>
+          <div class="print-list-value">${data.chassisNo || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Engine Number:</div>
+          <div class="print-list-value">${data.engineNo || ''}</div>
+        </div>
+      </div>
+      
+      <div class="print-list-divider"></div>
+      
+      <div class="print-list-section">
+        <div class="print-list-section-title">SURETY HOLDER DETAILS</div>
+        <div class="print-list-item">
+          <div class="print-list-label">Name of Surety Holder:</div>
+          <div class="print-list-value">${data.suretyHolderName || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Surety S/O W/O:</div>
+          <div class="print-list-value">${data.suretyRelation || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Surety Mobile:</div>
+          <div class="print-list-value">${data.suretyMobile || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Surety Address:</div>
+          <div class="print-list-value">${data.suretyAddress || ''}</div>
+        </div>
+        <div class="print-list-item">
+          <div class="print-list-label">Thumb Yes/No/Refinance:</div>
+          <div class="print-list-value">${data.thumbPrint || ''}</div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  return printListHTML;
+}
+
+function preparePrintLayout() {
+  const printListHTML = generatePrintList();
+  
+  // Create seal stamp SVG
+  const sealSVG = `
+    <div class="print-seal-container">
+      <svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" class="print-seal-svg">
+        <!-- Outer circle -->
+        <circle cx="150" cy="150" r="145" fill="none" stroke="#d32f2f" stroke-width="8"/>
+        
+        <!-- Inner circle -->
+        <circle cx="150" cy="150" r="135" fill="none" stroke="#d32f2f" stroke-width="4"/>
+        
+        <!-- Center design -->
+        <circle cx="150" cy="150" r="80" fill="#d32f2f" opacity="0.08"/>
+        
+        <!-- Rupee symbol on top -->
+        <text x="150" y="95" font-size="28" text-anchor="middle" fill="#d32f2f" font-weight="bold">₹</text>
+        
+        <!-- Bike icon in center -->
+        <text x="150" y="170" font-size="70" text-anchor="middle" fill="#d32f2f">🏍️</text>
+        
+        <!-- Text around the circle using path - LARGER FONT -->
+        <defs>
+          <path id="topCurve" d="M 40,150 A 110,110 0 0,1 260,150" fill="none"/>
+        </defs>
+        <text font-size="22" fill="#d32f2f" font-weight="bold" letter-spacing="3">
+          <textPath href="#topCurve" startOffset="50%" text-anchor="middle">
+            ★ ANVITHA FINANCE ★
+          </textPath>
+        </text>
+        
+        <!-- Bottom text - NANDIGAMA -->
+        <text x="150" y="265" font-size="16" text-anchor="middle" fill="#d32f2f" font-weight="bold" letter-spacing="2">
+          NANDIGAMA
+        </text>
+      </svg>
+    </div>
+  `;
+  
+  document.getElementById('printListContainer').innerHTML = printListHTML + sealSVG;
+}
+
+// ===== EVENT LISTENERS =====
+document.addEventListener('DOMContentLoaded', function () {
+  fetchExistingLoanNumbers();
+  
+  document.getElementById('mobile').addEventListener('input', function () { 
+    onlyDigits(this); validateMobile('mobile', 'mobileError'); 
+  });
+  
+  document.getElementById('suretyMobile').addEventListener('input', function () { 
+    onlyDigits(this); validateMobile('suretyMobile', 'suretyMobileError'); 
+  });
+  
+  document.getElementById('loanNo').addEventListener('blur', validateLoanNumber);
+  document.getElementById('registrationNumber').addEventListener('blur', function(){ toUpperTrim(this); });
+  document.getElementById('chassisNo').addEventListener('blur', function(){ toUpperTrim(this); });
+  document.getElementById('engineNo').addEventListener('blur', function(){ toUpperTrim(this); });
+  document.getElementById('loanDate').addEventListener('change', calculateInstallmentStartDate);
+  
+  ['loanAmount','interestRate','installments','emiType'].forEach(id => {
+    const el = document.getElementById(id);
+    el && el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', function(){
+      calculateTotals(); 
+      if (id === 'installments') calculateLastEMIDate();
+    });
+  });
+});
+</script>
+</body>
+</html>

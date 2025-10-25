@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Anvitha Finance - Ledger Excel Format</title>
+  <!-- SheetJS Library for Excel Export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      margin-left: 80px;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 100%;
+      margin: 20px auto;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+    }
+    
+    .header {
+      padding: 28px;
+      text-align: center;
+      background: linear-gradient(135deg, #2c3e50, #3498db);
+      color: #fff;
+    }
+    
+    .header h1 {
+      font-size: 2rem;
+      margin-bottom: 8px;
+    }
+    
+    .header p {
+      opacity: 0.9;
+      font-size: 0.95rem;
+    }
+    
+    .controls {
+      padding: 20px 30px;
+      background: #f8f9fa;
+      border-bottom: 2px solid #e9ecef;
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    
+    .control-row {
+      width: 100%;
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .control-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    
+    .search-box {
+      flex: 1;
+      min-width: 300px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    
+    .search-box input {
+      flex: 1;
+      padding: 10px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      transition: border-color 0.3s;
+    }
+    
+    .search-box input:focus {
+      outline: none;
+      border-color: #3498db;
+    }
+
+    .range-box {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 15px;
+      background: white;
+      border-radius: 8px;
+      border: 2px solid #e0e0e0;
+    }
+
+    .range-box label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #6c757d;
+      white-space: nowrap;
+    }
+
+    .range-box input {
+      width: 120px;
+      padding: 6px 10px;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    .range-box input:focus {
+      outline: none;
+      border-color: #3498db;
+    }
+    
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.3s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    
+    .btn-primary {
+      background: #3498db;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #2980b9;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+    }
+    
+    .btn-success {
+      background: #27ae60;
+      color: white;
+    }
+    
+    .btn-success:hover {
+      background: #229954;
+      transform: translateY(-2px);
+    }
+    
+    .btn-warning {
+      background: #f39c12;
+      color: white;
+    }
+    
+    .btn-warning:hover {
+      background: #e67e22;
+      transform: translateY(-2px);
+    }
+
+    .btn-info {
+      background: #17a2b8;
+      color: white;
+    }
+
+    .btn-info:hover {
+      background: #138496;
+      transform: translateY(-2px);
+    }
+
+    .btn-danger {
+      background: #e74c3c;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #c0392b;
+      transform: translateY(-2px);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+    
+    .stats-bar {
+      padding: 15px 30px;
+      background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+      display: flex;
+      gap: 30px;
+      flex-wrap: wrap;
+      border-bottom: 2px solid #dee2e6;
+    }
+    
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .stat-label {
+      font-size: 0.8rem;
+      color: #6c757d;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    
+    .stat-value {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #2c3e50;
+    }
+    
+    .stat-item.total .stat-value { color: #3498db; }
+    .stat-item.amount .stat-value { color: #27ae60; }
+    .stat-item.filtered .stat-value { color: #f39c12; }
+    .stat-item.selected .stat-value { color: #e74c3c; }
+    
+    /* EXCEL-LIKE TABLE STYLES */
+    .excel-wrapper {
+      background: #f0f0f0;
+      padding: 10px;
+      overflow: auto;
+      max-height: calc(100vh - 500px);
+    }
+
+    .excel-container {
+      display: inline-block;
+      min-width: 100%;
+      background: white;
+      border: 1px solid #c0c0c0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .excel-table {
+      border-collapse: collapse;
+      font-family: 'Calibri', 'Arial', sans-serif;
+      font-size: 11px;
+      background: white;
+      width: auto;
+    }
+
+    /* Checkbox column */
+    .excel-table .checkbox-cell {
+      background: #f0f0f0;
+      border: 1px solid #c0c0c0;
+      border-right: 2px solid #a0a0a0;
+      text-align: center;
+      padding: 4px;
+      width: 30px;
+      position: sticky;
+      left: 0;
+      z-index: 5;
+    }
+
+    .excel-table .checkbox-cell input[type="checkbox"] {
+      cursor: pointer;
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Row number column */
+    .excel-table .row-number {
+      background: #f0f0f0;
+      border: 1px solid #c0c0c0;
+      border-right: 2px solid #a0a0a0;
+      text-align: center;
+      font-weight: bold;
+      color: #000;
+      padding: 4px 8px;
+      min-width: 40px;
+      position: sticky;
+      left: 30px;
+      z-index: 5;
+      user-select: none;
+    }
+
+    /* Column headers */
+    .excel-table thead th {
+      background: #f0f0f0;
+      border: 1px solid #c0c0c0;
+      border-bottom: 2px solid #a0a0a0;
+      text-align: center;
+      font-weight: bold;
+      color: #000;
+      padding: 6px 4px;
+      min-width: 80px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      user-select: none;
+      font-size: 11px;
+    }
+
+    .excel-table thead th:first-child {
+      z-index: 15;
+      left: 0;
+    }
+
+    .excel-table thead th:nth-child(2) {
+      z-index: 15;
+      left: 30px;
+    }
+
+    /* Data cells */
+    .excel-table td {
+      border: 1px solid #d0d0d0;
+      padding: 4px 6px;
+      min-width: 80px;
+      max-width: 300px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      background: white;
+      color: #000;
+    }
+
+    .excel-table td:hover {
+      background: #e6f2ff;
+      cursor: cell;
+    }
+
+    .excel-table td.number {
+      text-align: right;
+      font-family: 'Courier New', monospace;
+    }
+
+    .excel-table td.date {
+      text-align: center;
+    }
+
+    .excel-table td.empty-cell {
+      background: #f9f9f9;
+      text-align: center;
+      color: #999;
+    }
+
+    /* Alternating row colors like Excel */
+    .excel-table tbody tr:nth-child(even) td:not(.row-number):not(.checkbox-cell) {
+      background: #fafafa;
+    }
+
+    .excel-table tbody tr:hover td:not(.row-number):not(.checkbox-cell) {
+      background: #e6f2ff !important;
+    }
+
+    .excel-table tbody tr.selected td:not(.row-number):not(.checkbox-cell) {
+      background: #d4edff !important;
+    }
+    
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 40px;
+      font-size: 1.1rem;
+      color: #6c757d;
+    }
+    
+    .loading.active {
+      display: block;
+    }
+    
+    .spinner {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 15px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .welcome-state {
+      text-align: center;
+      padding: 80px 20px;
+      color: #6c757d;
+    }
+    
+    .welcome-state-icon {
+      font-size: 5rem;
+      margin-bottom: 20px;
+      opacity: 0.6;
+    }
+    
+    .welcome-state h3 {
+      font-size: 1.8rem;
+      margin-bottom: 15px;
+      color: #2c3e50;
+    }
+
+    .welcome-state p {
+      font-size: 1.1rem;
+      margin-bottom: 30px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #6c757d;
+    }
+    
+    .empty-state-icon {
+      font-size: 4rem;
+      margin-bottom: 20px;
+      opacity: 0.5;
+    }
+    
+    .empty-state h3 {
+      font-size: 1.5rem;
+      margin-bottom: 10px;
+    }
+
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #27ae60;
+      color: white;
+      padding: 15px 25px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      z-index: 9999;
+      display: none;
+      font-weight: 600;
+      animation: slideIn 0.3s ease;
+    }
+
+    .toast.show {
+      display: block;
+    }
+
+    .toast.error {
+      background: #e74c3c;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    /* SIDEBAR STYLES */
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 80px;
+      height: 100vh;
+      background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 0;
+      gap: 15px;
+      box-shadow: 2px 0 15px rgba(0,0,0,0.2);
+      z-index: 1000;
+    }
+
+    .sidebar-logo {
+      width: 50px;
+      height: 50px;
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: white;
+      font-weight: bold;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
+    }
+
+    .sidebar-btn {
+      width: 55px;
+      height: 55px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      position: relative;
+      text-decoration: none;
+    }
+
+    .sidebar-btn:hover {
+      transform: translateX(5px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .sidebar-btn.home { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .sidebar-btn.entry { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .sidebar-btn.search { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .sidebar-btn.modifier { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+    .sidebar-btn.collection { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+    .sidebar-btn.analytics { background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); }
+    .sidebar-btn.loans { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); }
+    .sidebar-btn.overdue { background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); }
+    .sidebar-btn.print { background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); }
+    .sidebar-btn.archive { background: linear-gradient(135deg, #ff6e7f 0%, #bfe9ff 100%); }
+    .sidebar-btn.quality { background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); }
+    .sidebar-btn.ledger { background: linear-gradient(135deg, #f857a6 0%, #ff5858 100%); }
+
+    .sidebar-btn.active {
+      transform: translateX(5px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+
+    .sidebar-tooltip {
+      position: absolute;
+      left: 70px;
+      background: rgba(0,0,0,0.9);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      white-space: nowrap;
+      font-size: 12px;
+      font-weight: 500;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+      z-index: 1001;
+    }
+
+    .sidebar-btn:hover .sidebar-tooltip {
+      opacity: 1;
+    }
+
+    /* RESPONSIVE DESIGN */
+    @media (max-width: 768px) {
+      body {
+        margin-left: 0;
+        padding: 10px;
+      }
+
+      .sidebar {
+        width: 60px;
+        padding: 15px 0;
+      }
+
+      .sidebar-logo {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+      }
+
+      .sidebar-btn {
+        width: 45px;
+        height: 45px;
+        font-size: 18px;
+      }
+
+      .container {
+        margin: 10px;
+      }
+
+      .controls {
+        padding: 15px;
+      }
+
+      .control-row {
+        flex-direction: column;
+      }
+
+      .search-box {
+        min-width: 100%;
+      }
+
+      .control-group {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .range-box {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .range-box input {
+        width: 100%;
+      }
+
+      .stats-bar {
+        flex-direction: column;
+        gap: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR NAVIGATION -->
+<nav class="sidebar">
+  <div class="sidebar-logo">A</div>
+  <a href="home_page.html" class="sidebar-btn home">
+    <span>🏠</span>
+    <div class="sidebar-tooltip">Home</div>
+  </a>
+  <a href="entry.html" class="sidebar-btn entry">
+    <span>📝</span>
+    <div class="sidebar-tooltip">New Loan Entry</div>
+  </a>
+  <a href="customer_search_kyc.html" class="sidebar-btn search">
+    <span>🔍</span>
+    <div class="sidebar-tooltip">Customer Search</div>
+  </a>
+  <a href="emi_collection_modifier.html" class="sidebar-btn modifier">
+    <span>✏️</span>
+    <div class="sidebar-tooltip">Loan/EMI Modifier</div>
+  </a>
+  <a href="emi-collection.html" class="sidebar-btn collection">
+    <span>💰</span>
+    <div class="sidebar-tooltip">EMI Collections</div>
+  </a>
+  <a href="enhanced_finance_report.html" class="sidebar-btn analytics">
+    <span>📊</span>
+    <div class="sidebar-tooltip">Analytics & Reports</div>
+  </a>
+  <a href="all_loans_list.html" class="sidebar-btn loans">
+    <span>📋</span>
+    <div class="sidebar-tooltip">All Loans List</div>
+  </a>
+  <a href="overdue_analysis.html" class="sidebar-btn overdue">
+    <span>⚠️</span>
+    <div class="sidebar-tooltip">Overdue's</div>
+  </a>
+  <a href="print_overdue_excel_format.html" class="sidebar-btn print">
+    <span>🖨️</span>
+    <div class="sidebar-tooltip">Print Report</div>
+  </a>
+  <a href="loan-archival-system.html" class="sidebar-btn archive">
+    <span>🗄️</span>
+    <div class="sidebar-tooltip">Loan Archive</div>
+  </a>
+  <a href="data-quality-report.html" class="sidebar-btn quality">
+    <span>✅</span>
+    <div class="sidebar-tooltip">Data Quality</div>
+  </a>
+  <a href="ledger_excel_format.html" class="sidebar-btn ledger active">
+    <span>📑</span>
+    <div class="sidebar-tooltip">Ledger Excel View</div>
+  </a>
+</nav>
+
+<!-- Toast Notification -->
+<div id="toast" class="toast"></div>
+
+<!-- MAIN CONTENT -->
+<div class="container">
+  <div class="header">
+    <h1>📑 Ledger Excel Format Viewer</h1>
+    <p>Complete Ledger Data in Excel Table Format</p>
+  </div>
+
+  <div class="controls">
+    <div class="control-row">
+      <div class="control-group">
+        <button class="btn btn-success" onclick="loadAllData()">📊 Load All Data</button>
+        <div class="range-box">
+          <label>Load Range:</label>
+          <input type="text" id="loadFromLoan" placeholder="From" />
+          <span>to</span>
+          <input type="text" id="loadToLoan" placeholder="To" />
+        </div>
+        <button class="btn btn-info" onclick="loadRangeData()">📥 Load Range</button>
+      </div>
+      <div class="control-group">
+        <button class="btn btn-primary" onclick="copySelectedRows()" id="copyBtn" disabled>📋 Copy Selected</button>
+        <button class="btn btn-danger" onclick="clearSelection()">❌ Clear Selection</button>
+        <button class="btn btn-success" onclick="exportToExcel()" id="exportBtn" disabled>📥 Export to Excel</button>
+      </div>
+    </div>
+
+    <div class="control-row" id="searchRow" style="display: none;">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search by Customer Name, Loan Number, or Mobile..." />
+        <button class="btn btn-primary" onclick="filterTable()">🔍 Search</button>
+        <button class="btn btn-warning" onclick="clearFilters()">🔄 Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-bar" id="statsBar" style="display: none;">
+    <div class="stat-item total">
+      <div class="stat-label">Total Records</div>
+      <div class="stat-value" id="totalRecords">0</div>
+    </div>
+    <div class="stat-item filtered">
+      <div class="stat-label">Displayed Records</div>
+      <div class="stat-value" id="displayedRecords">0</div>
+    </div>
+    <div class="stat-item selected">
+      <div class="stat-label">Selected Rows</div>
+      <div class="stat-value" id="selectedRecords">0</div>
+    </div>
+    <div class="stat-item amount">
+      <div class="stat-label">Total Loan Amount</div>
+      <div class="stat-value" id="totalLoanAmount">₹0</div>
+    </div>
+  </div>
+
+  <div class="welcome-state" id="welcomeState">
+    <div class="welcome-state-icon">📑</div>
+    <h3>Welcome to Ledger Excel Viewer</h3>
+    <p>Click "Load All Data" to view complete ledger or use "Load Range" to load specific loan numbers</p>
+    <button class="btn btn-success" onclick="loadAllData()" style="font-size: 1.1rem; padding: 12px 30px;">📊 Load All Data</button>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div>Loading ledger data...</div>
+  </div>
+
+  <div class="excel-wrapper" id="excelWrapper" style="display: none;">
+    <div class="excel-container">
+      <table class="excel-table" id="ledgerTable">
+        <thead>
+          <tr>
+            <th class="checkbox-cell"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
+            <th class="row-number">#</th>
+            <th>A<br>S.No</th>
+            <th>B<br>Customer Name</th>
+            <th>C<br>S/o W/o</th>
+            <th>D<br>Mobile No</th>
+            <th>E<br>Village</th>
+            <th>F<br>Address</th>
+            <th>G<br>Loan No</th>
+            <th>H<br>DOL Day</th>
+            <th>I<br>DOL Month</th>
+            <th>J<br>DOL Year</th>
+            <th>K<br>Loan Amount</th>
+            <th>L<br>Rate of Interest</th>
+            <th>M<br>No of Installments</th>
+            <th>N<br>Interest per Month</th>
+            <th>O<br>Interest</th>
+            <th>P<br>Principal Amt</th>
+            <th>Q<br>Total EMI</th>
+            <th>R<br>Total Interest</th>
+            <th>S<br>Total Principal</th>
+            <th>T<br>Total Amt to Collect</th>
+            <th>U<br>Showroom Quote</th>
+            <th>V<br>DOI Day</th>
+            <th>W<br>DOI Month</th>
+            <th>X<br>DOI Year</th>
+            <th>Y<br>Total Amt to be Paid</th>
+            <th>Z<br>Difference</th>
+            <th>AA<br>Make of Vehicle</th>
+            <th>AB<br>Year of Mfg</th>
+            <th>AC<br>Reg No</th>
+            <th>AD<br>Insurance Name</th>
+            <th>AE<br>Insurance Validity</th>
+            <th>AF<br>Chassis No</th>
+            <th>AG<br>Engine No</th>
+            <th>AH<br>Surety Name</th>
+            <th>AI<br>Surety S/o W/o</th>
+            <th>AJ<br>Surety Mobile</th>
+            <th>AK<br>Surety Address</th>
+            <th>AL<br>Thumb (Yes/No)</th>
+          </tr>
+        </thead>
+        <tbody id="ledgerTableBody">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="empty-state" id="emptyState" style="display: none;">
+    <div class="empty-state-icon">📂</div>
+    <h3>No Records Found</h3>
+    <p>No data matches your current filters.</p>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzPBMML2B8a6dMXMFL78dBIEeSRGG8yEhk2xn9BBEO_kx1kfan_Re73qOsIKAsjkQ8/exec';
+  const SECRET = 'ANVITHA_SUPER_SECRET_2025';
+
+  let allLedgerData = [];
+  let filteredData = [];
+  let selectedRows = new Set();
+
+  // ===== UTILITY FUNCTIONS =====
+  function formatCurrency(amount) {
+    const num = parseFloat(amount) || 0;
+    return '₹' + num.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  }
+
+  function formatMobile(mobile) {
+    const num = mobile ? mobile.toString().split('.')[0] : '';
+    return num;
+  }
+
+  function parseDate(dateStr) {
+    if (!dateStr) return { day: '', month: '', year: '' };
+    
+    if (typeof dateStr === 'string' && dateStr.includes('T')) {
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        return {
+          day: String(date.getDate()).padStart(2, '0'),
+          month: String(date.getMonth() + 1).padStart(2, '0'),
+          year: String(date.getFullYear())
+        };
+      }
+    }
+    
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      const parts = dateStr.toString().split(/[\/\-]/);
+      if (parts.length === 3) {
+        return {
+          day: parts[0].padStart(2, '0'),
+          month: parts[1].padStart(2, '0'),
+          year: parts[2]
+        };
+      }
+      return { day: '', month: '', year: '' };
+    }
+    
+    return {
+      day: String(date.getDate()).padStart(2, '0'),
+      month: String(date.getMonth() + 1).padStart(2, '0'),
+      year: String(date.getFullYear())
+    };
+  }
+
+  function showToast(message, isError = false) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = 'toast show' + (isError ? ' error' : '');
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 3000);
+  }
+
+  // ===== DATA LOADING FUNCTIONS =====
+  async function loadAllData() {
+    await fetchLedgerData();
+  }
+
+  async function loadRangeData() {
+    const fromLoan = document.getElementById('loadFromLoan').value.trim();
+    const toLoan = document.getElementById('loadToLoan').value.trim();
+
+    if (!fromLoan || !toLoan) {
+      showToast('Please enter both From and To loan numbers', true);
+      return;
+    }
+
+    const fromNum = parseInt(fromLoan.replace(/\D/g, ''));
+    const toNum = parseInt(toLoan.replace(/\D/g, ''));
+
+    if (isNaN(fromNum) || isNaN(toNum)) {
+      showToast('Invalid loan number format', true);
+      return;
+    }
+
+    if (fromNum > toNum) {
+      showToast('From loan number should be less than To loan number', true);
+      return;
+    }
+
+    await fetchLedgerData(fromNum, toNum);
+  }
+
+  async function fetchLedgerData(fromLoan = null, toLoan = null) {
+    try {
+      document.getElementById('welcomeState').style.display = 'none';
+      document.getElementById('loading').classList.add('active');
+      document.getElementById('excelWrapper').style.display = 'none';
+      document.getElementById('emptyState').style.display = 'none';
+
+      const url = `${SCRIPT_URL}?action=getAllLedger&secret=${SECRET}`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status === 'success' && data.data) {
+        console.log('Available columns:', Object.keys(data.data[0]));
+
+        const getColumnValue = (row, ...possibleNames) => {
+          for (let name of possibleNames) {
+            if (row[name] !== undefined && row[name] !== null && row[name] !== '') {
+              return row[name];
+            }
+          }
+          
+          const rowKeys = Object.keys(row);
+          for (let name of possibleNames) {
+            const normalizedName = name.toLowerCase().trim();
+            for (let key of rowKeys) {
+              if (key.toLowerCase().trim() === normalizedName) {
+                if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
+                  return row[key];
+                }
+              }
+            }
+          }
+          
+          return '';
+        };
+
+        let processedData = data.data.map(row => {
+          return {
+            sno: getColumnValue(row, 'S.No', 'S No', 'SNo'),
+            customerName: getColumnValue(row, 'Name of the customer', 'Customer Name'),
+            fatherName: getColumnValue(row, 'S/o W/o', 'S/O W/O', 'Father Name'),
+            mobile: getColumnValue(row, 'Mobile No', 'Mobile'),
+            village: getColumnValue(row, 'Name of the village', 'Village'),
+            address: getColumnValue(row, 'Address'),
+            loanNo: getColumnValue(row, 'Loan No', 'LoanNo'),
+            dateOfLoan: getColumnValue(row, 'Date of loan', 'Date of Loan'),
+            loanAmount: getColumnValue(row, 'Loan Amount'),
+            rateOfInterest: getColumnValue(row, 'Rate of Intt', 'Rate of Interest', 'Rate of interest'),
+            noOfInstallments: getColumnValue(row, 'No of monthly Ins', 'No of monthly instalments', 'No of Installments'),
+            interestPerMonth: getColumnValue(row, 'Intt per one month', 'Interest per month'),
+            interest: getColumnValue(row, 'Interest'),
+            principalAmt: getColumnValue(row, 'Principal amt', 'Principal Amt'),
+            totalEMI: getColumnValue(row, 'Total EMI', 'Total Emi'),
+            totalInterest: getColumnValue(row, 'Total Intt', 'Total Interest'),
+            totalPrincipal: getColumnValue(row, 'Principal', 'Total Principal'),
+            totalAmountToCollect: getColumnValue(row, 'Total Amt (Loan Amt + Intt)', 'Total Amount'),
+            dateOfInstallmentStarting: getColumnValue(row, 'Date of instalment starting', 'Date of Instalment Starting', 'Date of installment starting'),
+            totalAmountToBePaid: getColumnValue(row, 'Total amt to be paid', 'Total Amount to be Paid'),
+            difference: getColumnValue(row, 'Difference between principal & total amt to be paid', 'Difference'),
+            makeOfVehicle: getColumnValue(row, 'Make of vehicle', 'Make of Vehicle'),
+            yearOfManufacturing: getColumnValue(row, 'Year of manufacturing', 'Year of Manufacturing'),
+            regNo: getColumnValue(row, 'Reg No', 'Registration Number'),
+            insuranceName: getColumnValue(row, 'Name of Ins Co', 'Insurance Name', 'Name of Insurance'),
+            insuranceValidity: getColumnValue(row, 'Ins valid upto', 'Insurance Validity', 'Ins valid upto'),
+            chassisNo: getColumnValue(row, 'Chassis No', 'Chasis Number'),
+            engineNo: getColumnValue(row, 'Engine No', 'Engine Number'),
+            suretyName: getColumnValue(row, 'Name of the surety holder', 'Surety Name'),
+            suretyFatherName: getColumnValue(row, 'Surety S/O W/O', 'Surety Father Name'),
+            suretyMobile: getColumnValue(row, 'Surety Mobile'),
+            suretyAddress: getColumnValue(row, 'Surety Address'),
+            thumb: getColumnValue(row, 'Thumb Yes/No', 'Thumb (Yes/No)', 'Thumb')
+          };
+        });
+
+        if (fromLoan !== null && toLoan !== null) {
+          processedData = processedData.filter(row => {
+            const loanNo = (row.loanNo || '').toString();
+            const loanNum = parseInt(loanNo.replace(/\D/g, ''));
+            return !isNaN(loanNum) && loanNum >= fromLoan && loanNum <= toLoan;
+          });
+        }
+
+        allLedgerData = processedData;
+        filteredData = [...allLedgerData];
+        selectedRows.clear();
+        
+        displayData(filteredData);
+        updateStats();
+        
+        document.getElementById('searchRow').style.display = 'flex';
+        document.getElementById('statsBar').style.display = 'flex';
+        
+        showToast(`Loaded ${allLedgerData.length} records successfully!`);
+      } else {
+        showError('Failed to load ledger data: ' + (data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      showError('Error fetching data: ' + error.message);
+    }
+  }
+
+  function displayData(data) {
+    const tableBody = document.getElementById('ledgerTableBody');
+    const loading = document.getElementById('loading');
+    const excelWrapper = document.getElementById('excelWrapper');
+    const emptyState = document.getElementById('emptyState');
+
+    loading.classList.remove('active');
+
+    if (!data || data.length === 0) {
+      excelWrapper.style.display = 'none';
+      emptyState.style.display = 'block';
+      return;
+    }
+
+    excelWrapper.style.display = 'block';
+    emptyState.style.display = 'none';
+
+    tableBody.innerHTML = '';
+
+    data.forEach((row, index) => {
+      const dolDate = parseDate(row.dateOfLoan);
+      const doiDate = parseDate(row.dateOfInstallmentStarting);
+      
+      const formatDateValue = (value) => {
+        if (!value) return '';
+        if (typeof value === 'string' && (value.includes('T') || value.includes('-'))) {
+          const parsed = parseDate(value);
+          if (parsed.day && parsed.month && parsed.year) {
+            return `${parsed.day}-${parsed.month}-${parsed.year}`;
+          }
+        }
+        return value;
+      };
+
+      const tr = document.createElement('tr');
+      tr.dataset.index = index;
+      
+      const checkboxCell = document.createElement('td');
+      checkboxCell.className = 'checkbox-cell';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.onchange = () => toggleRowSelection(index);
+      checkboxCell.appendChild(checkbox);
+      tr.appendChild(checkboxCell);
+
+      const rowNumCell = document.createElement('td');
+      rowNumCell.className = 'row-number';
+      rowNumCell.textContent = index + 1;
+      tr.appendChild(rowNumCell);
+
+      const columns = [
+        { value: row.sno || (index + 1), class: '' },
+        { value: row.customerName, class: '' },
+        { value: row.fatherName, class: '' },
+        { value: formatMobile(row.mobile), class: 'number' },
+        { value: row.village, class: '' },
+        { value: row.address, class: '' },
+        { value: row.loanNo, class: '' },
+        { value: dolDate.day, class: 'date' },
+        { value: dolDate.month, class: 'date' },
+        { value: dolDate.year, class: 'date' },
+        { value: row.loanAmount, class: 'number', format: 'currency' },
+        { value: row.rateOfInterest, class: 'number' },
+        { value: row.noOfInstallments, class: 'number' },
+        { value: row.interestPerMonth, class: 'number', format: 'currency' },
+        { value: row.interest, class: 'number', format: 'currency' },
+        { value: row.principalAmt, class: 'number', format: 'currency' },
+        { value: row.totalEMI, class: 'number', format: 'currency' },
+        { value: row.totalInterest, class: 'number', format: 'currency' },
+        { value: row.totalPrincipal, class: 'number', format: 'currency' },
+        { value: row.totalAmountToCollect, class: 'number', format: 'currency' },
+        { value: '', class: 'empty-cell' },
+        { value: doiDate.day, class: 'date' },
+        { value: doiDate.month, class: 'date' },
+        { value: doiDate.year, class: 'date' },
+        { value: row.totalAmountToBePaid, class: 'number', format: 'currency' },
+        { value: row.difference, class: 'number', format: 'currency' },
+        { value: row.makeOfVehicle, class: '' },
+        { value: row.yearOfManufacturing, class: '' },
+        { value: row.regNo, class: '' },
+        { value: row.insuranceName, class: '' },
+        { value: formatDateValue(row.insuranceValidity), class: '' },
+        { value: row.chassisNo, class: '' },
+        { value: row.engineNo, class: '' },
+        { value: row.suretyName, class: '' },
+        { value: row.suretyFatherName, class: '' },
+        { value: formatMobile(row.suretyMobile), class: 'number' },
+        { value: row.suretyAddress, class: '' },
+        { value: row.thumb, class: '' }
+      ];
+
+      columns.forEach(col => {
+        const td = document.createElement('td');
+        td.className = col.class;
+        
+        if (col.class === 'empty-cell') {
+          td.textContent = '-';
+        } else if (col.format === 'currency') {
+          td.textContent = col.value ? formatCurrency(col.value) : '';
+        } else {
+          td.textContent = col.value || '';
+        }
+        
+        tr.appendChild(td);
+      });
+
+      tableBody.appendChild(tr);
+    });
+
+    document.getElementById('exportBtn').disabled = false;
+  }
+
+  function toggleRowSelection(index) {
+    if (selectedRows.has(index)) {
+      selectedRows.delete(index);
+      document.querySelector(`tr[data-index="${index}"]`).classList.remove('selected');
+    } else {
+      selectedRows.add(index);
+      document.querySelector(`tr[data-index="${index}"]`).classList.add('selected');
+    }
+    updateSelectionUI();
+  }
+
+  function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('#ledgerTableBody input[type="checkbox"]');
+    
+    selectedRows.clear();
+    checkboxes.forEach((cb, idx) => {
+      cb.checked = selectAll.checked;
+      if (selectAll.checked) {
+        selectedRows.add(idx);
+        document.querySelector(`tr[data-index="${idx}"]`).classList.add('selected');
+      } else {
+        document.querySelector(`tr[data-index="${idx}"]`).classList.remove('selected');
+      }
+    });
+    
+    updateSelectionUI();
+  }
+
+  function clearSelection() {
+    selectedRows.clear();
+    document.getElementById('selectAll').checked = false;
+    document.querySelectorAll('#ledgerTableBody input[type="checkbox"]').forEach(cb => cb.checked = false);
+    document.querySelectorAll('#ledgerTableBody tr.selected').forEach(tr => tr.classList.remove('selected'));
+    updateSelectionUI();
+    showToast('Selection cleared');
+  }
+
+  function updateSelectionUI() {
+    document.getElementById('selectedRecords').textContent = selectedRows.size;
+    document.getElementById('copyBtn').disabled = selectedRows.size === 0;
+  }
+
+  function copySelectedRows() {
+    if (selectedRows.size === 0) {
+      showToast('No rows selected', true);
+      return;
+    }
+
+    const selectedData = Array.from(selectedRows).sort((a, b) => a - b).map(idx => filteredData[idx]);
+    
+    let copyText = '';
+    
+    // No headers - start directly with data rows
+    selectedData.forEach(row => {
+      const dolDate = parseDate(row.dateOfLoan);
+      const doiDate = parseDate(row.dateOfInstallmentStarting);
+      
+      const formatDateValue = (value) => {
+        if (!value) return '';
+        if (typeof value === 'string' && (value.includes('T') || value.includes('-'))) {
+          const parsed = parseDate(value);
+          if (parsed.day && parsed.month && parsed.year) {
+            return `${parsed.day}-${parsed.month}-${parsed.year}`;
+          }
+        }
+        return value;
+      };
+
+      const rowData = [
+        row.sno || '',
+        row.customerName || '',
+        row.fatherName || '',
+        formatMobile(row.mobile) || '',
+        row.village || '',
+        row.address || '',
+        row.loanNo || '',
+        dolDate.day,
+        dolDate.month,
+        dolDate.year,
+        row.loanAmount || '',
+        row.rateOfInterest || '',
+        row.noOfInstallments || '',
+        row.interestPerMonth || '',
+        row.interest || '',
+        row.principalAmt || '',
+        row.totalEMI || '',
+        row.totalInterest || '',
+        row.totalPrincipal || '',
+        row.totalAmountToCollect || '',
+        '',
+        doiDate.day,
+        doiDate.month,
+        doiDate.year,
+        row.totalAmountToBePaid || '',
+        row.difference || '',
+        row.makeOfVehicle || '',
+        row.yearOfManufacturing || '',
+        row.regNo || '',
+        row.insuranceName || '',
+        formatDateValue(row.insuranceValidity),
+        row.chassisNo || '',
+        row.engineNo || '',
+        row.suretyName || '',
+        row.suretyFatherName || '',
+        formatMobile(row.suretyMobile) || '',
+        row.suretyAddress || '',
+        row.thumb || ''
+      ];
+
+      copyText += rowData.join('\t') + '\n';
+    });
+
+    navigator.clipboard.writeText(copyText).then(() => {
+      showToast(`Copied ${selectedRows.size} rows! Paste in Excel.`);
+    }).catch(err => {
+      showToast('Failed to copy', true);
+      console.error('Copy failed:', err);
+    });
+  }
+
+  function filterTable() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+    
+    if (!searchTerm) {
+      filteredData = [...allLedgerData];
+    } else {
+      filteredData = allLedgerData.filter(row => {
+        const customerName = (row.customerName || '').toString().toLowerCase();
+        const mobile = (row.mobile || '').toString().toLowerCase();
+        const loanNo = (row.loanNo || '').toString().toLowerCase();
+        
+        return customerName.includes(searchTerm) || 
+               mobile.includes(searchTerm) || 
+               loanNo.includes(searchTerm);
+      });
+    }
+
+    selectedRows.clear();
+    displayData(filteredData);
+    updateStats();
+    updateSelectionUI();
+  }
+
+  function clearFilters() {
+    document.getElementById('searchInput').value = '';
+    filteredData = [...allLedgerData];
+    selectedRows.clear();
+    displayData(filteredData);
+    updateStats();
+    updateSelectionUI();
+  }
+
+  function updateStats() {
+    document.getElementById('totalRecords').textContent = allLedgerData.length;
+    document.getElementById('displayedRecords').textContent = filteredData.length;
+
+    const totalLoanAmount = filteredData.reduce((sum, row) => {
+      return sum + (parseFloat(row.loanAmount) || 0);
+    }, 0);
+
+    document.getElementById('totalLoanAmount').textContent = formatCurrency(totalLoanAmount);
+  }
+
+  function exportToExcel() {
+    if (filteredData.length === 0) {
+      showToast('No data to export', true);
+      return;
+    }
+
+    const excelData = [];
+    
+    excelData.push([
+      'S.No', 'Customer Name', 'S/o W/o', 'Mobile No', 'Village', 'Address', 'Loan No',
+      'DOL Day', 'DOL Month', 'DOL Year', 'Loan Amount', 'Rate of Interest', 'No of Installments',
+      'Interest per Month', 'Interest', 'Principal Amt', 'Total EMI', 'Total Interest',
+      'Total Principal', 'Total Amt to Collect', 'Showroom Quote', 'DOI Day', 'DOI Month',
+      'DOI Year', 'Total Amt to be Paid', 'Difference', 'Make of Vehicle', 'Year of Mfg',
+      'Reg No', 'Insurance Name', 'Insurance Validity', 'Chassis No', 'Engine No',
+      'Surety Name', 'Surety S/o W/o', 'Surety Mobile', 'Surety Address', 'Thumb (Yes/No)'
+    ]);
+
+    filteredData.forEach((row, index) => {
+      const dolDate = parseDate(row.dateOfLoan);
+      const doiDate = parseDate(row.dateOfInstallmentStarting);
+      
+      const formatDateValue = (value) => {
+        if (!value) return '';
+        if (typeof value === 'string' && (value.includes('T') || value.includes('-'))) {
+          const parsed = parseDate(value);
+          if (parsed.day && parsed.month && parsed.year) {
+            return `${parsed.day}-${parsed.month}-${parsed.year}`;
+          }
+        }
+        return value;
+      };
+
+      excelData.push([
+        row.sno || (index + 1),
+        row.customerName || '',
+        row.fatherName || '',
+        formatMobile(row.mobile) || '',
+        row.village || '',
+        row.address || '',
+        row.loanNo || '',
+        dolDate.day,
+        dolDate.month,
+        dolDate.year,
+        row.loanAmount || '',
+        row.rateOfInterest || '',
+        row.noOfInstallments || '',
+        row.interestPerMonth || '',
+        row.interest || '',
+        row.principalAmt || '',
+        row.totalEMI || '',
+        row.totalInterest || '',
+        row.totalPrincipal || '',
+        row.totalAmountToCollect || '',
+        '',
+        doiDate.day,
+        doiDate.month,
+        doiDate.year,
+        row.totalAmountToBePaid || '',
+        row.difference || '',
+        row.makeOfVehicle || '',
+        row.yearOfManufacturing || '',
+        row.regNo || '',
+        row.insuranceName || '',
+        formatDateValue(row.insuranceValidity),
+        row.chassisNo || '',
+        row.engineNo || '',
+        row.suretyName || '',
+        row.suretyFatherName || '',
+        formatMobile(row.suretyMobile) || '',
+        row.suretyAddress || '',
+        row.thumb || ''
+      ]);
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(excelData);
+    XLSX.utils.book_append_sheet(wb, ws, 'Ledger Data');
+
+    const timestamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `Ledger_Excel_${timestamp}.xlsx`);
+    
+    showToast('Excel file downloaded!');
+  }
+
+  function showError(message) {
+    const loading = document.getElementById('loading');
+    loading.classList.remove('active');
+    loading.innerHTML = `
+      <div style="color: #dc3545;">
+        <div style="font-size: 3rem; margin-bottom: 15px;">⚠️</div>
+        <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 10px;">Error Loading Data</div>
+        <div style="font-size: 0.95rem;">${message}</div>
+        <button class="btn btn-primary" onclick="location.reload()" style="margin-top: 20px;">🔄 Retry</button>
+      </div>
+    `;
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedRows.size > 0) {
+      e.preventDefault();
+      copySelectedRows();
+    }
+    
+    if ((e.ctrlKey || e.metaKey) && e.key === 'a' && filteredData.length > 0) {
+      e.preventDefault();
+      document.getElementById('selectAll').checked = true;
+      toggleSelectAll();
+    }
+  });
+</script>
+
+</body>
+</html>
