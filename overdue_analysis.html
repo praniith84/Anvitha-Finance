@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Overdue EMI Analysis - Anvitha Finance</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: 'Segoe UI', Tahoma, Arial, sans-serif; 
+      background: linear-gradient(135deg, #667eea, #764ba2); 
+      padding: 18px; 
+    }
+    .container { 
+      max-width: 1600px; 
+      margin: 0 auto; 
+      background: #fff; 
+      border-radius: 12px; 
+      overflow: hidden; 
+      box-shadow: 0 20px 40px rgba(0,0,0,0.12); 
+    }
+    .header { 
+      padding: 28px; 
+      text-align: center; 
+      background: linear-gradient(135deg, #c0392b, #e74c3c); 
+      color: #fff; 
+      position: relative; 
+    }
+    .back-btn { 
+      position: absolute; 
+      left: 20px; 
+      top: 50%; 
+      transform: translateY(-50%); 
+      background: rgba(255,255,255,0.15); 
+      padding: 8px 14px; 
+      border-radius: 20px; 
+      color: #fff; 
+      text-decoration: none; 
+    }
+    .content { padding: 30px; }
+    .loading { 
+      text-align: center; 
+      padding: 40px; 
+      display: none; 
+    }
+    .spinner { 
+      border: 4px solid #f3f3f3; 
+      border-top: 4px solid #3498db; 
+      border-radius: 50%; 
+      width: 50px; 
+      height: 50px; 
+      animation: spin 1s linear infinite; 
+      margin: 0 auto; 
+    }
+    @keyframes spin { 
+      0% { transform: rotate(0deg); } 
+      100% { transform: rotate(360deg); } 
+    }
+    
+    /* New Month-wise Summary Table Styles */
+    .summary-table-container {
+      margin-bottom: 30px;
+      overflow-x: auto;
+    }
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .summary-table th {
+      background: linear-gradient(135deg, #2c3e50, #34495e);
+      color: #fff;
+      padding: 15px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 1em;
+      border-right: 1px solid rgba(255,255,255,0.1);
+    }
+    .summary-table th:last-child {
+      border-right: none;
+    }
+    .summary-table td {
+      padding: 18px 15px;
+      text-align: center;
+      border-bottom: 1px solid #eee;
+      border-right: 1px solid #eee;
+      font-size: 1.1em;
+    }
+    .summary-table td:last-child {
+      border-right: none;
+    }
+    .summary-table tr.current-month td {
+      background: linear-gradient(135deg, #ffe6e6, #fff0f0);
+      color: #c0392b;
+      font-weight: 600;
+    }
+    .summary-table tr.previous-month td {
+      background: linear-gradient(135deg, #fff4e6, #fffaf0);
+      color: #e67e22;
+      font-weight: 600;
+    }
+    .summary-table tr.past-month td {
+      background: linear-gradient(135deg, #fff9e6, #fffef0);
+      color: #f39c12;
+      font-weight: 600;
+    }
+    .summary-table tr.older-months td {
+      background: linear-gradient(135deg, #f3e6ff, #faf0ff);
+      color: #8e44ad;
+      font-weight: 600;
+    }
+    .summary-table tr.grand-total td {
+      background: linear-gradient(135deg, #2c3e50, #34495e);
+      color: #fff;
+      font-weight: 700;
+      font-size: 1.2em;
+      border-top: 3px solid #c0392b;
+    }
+    .month-label {
+      font-weight: 600;
+      text-align: left !important;
+      padding-left: 20px !important;
+    }
+    .print-btn-container {
+      text-align: right;
+      margin-bottom: 20px;
+    }
+    .print-btn {
+      padding: 12px 24px;
+      background: #27ae60;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 1em;
+    }
+    .print-btn:hover { background: #229954; }
+    .section {
+      margin-bottom: 40px;
+      page-break-inside: avoid;
+    }
+    .section-header {
+      background: linear-gradient(135deg, #2c3e50, #3498db);
+      color: #fff;
+      padding: 15px 20px;
+      border-radius: 8px 8px 0 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .section-header h2 {
+      font-size: 1.3em;
+    }
+    .section-badge {
+      background: rgba(255,255,255,0.2);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.9em;
+    }
+    .section.current-month .section-header { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+    .section.previous-month .section-header { background: linear-gradient(135deg, #e67e22, #d35400); }
+    .section.past-month .section-header { background: linear-gradient(135deg, #f39c12, #e67e22); }
+    .section.older-dues .section-header { background: linear-gradient(135deg, #8e44ad, #6c3483); }
+    .section.multiple-months .section-header { background: linear-gradient(135deg, #c0392b, #922b21); }
+    .section-content {
+      border: 1px solid #dee2e6;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+    }
+    .results-table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      font-size: 0.9em;
+    }
+    .results-table th { 
+      background: #f8f9fa; 
+      color: #2c3e50; 
+      padding: 12px 8px; 
+      text-align: left; 
+      border-bottom: 2px solid #dee2e6;
+      font-weight: 600;
+    }
+    .results-table td { 
+      padding: 12px 8px; 
+      border-bottom: 1px solid #eee; 
+      vertical-align: top;
+    }
+    .results-table tr:hover { background: #f8f9fa; }
+    .emi-details {
+      font-size: 0.85em;
+      line-height: 1.8;
+    }
+    .emi-item {
+      display: block;
+      padding: 4px 0;
+      color: #555;
+    }
+    .emi-item strong {
+      color: #2c3e50;
+    }
+    .section-total {
+      background: #fff3cd;
+      padding: 15px 20px;
+      font-weight: 600;
+      border-top: 2px solid #f39c12;
+      text-align: right;
+      font-size: 1.1em;
+      color: #856404;
+    }
+    .no-data {
+      padding: 40px;
+      text-align: center;
+      color: #999;
+      font-style: italic;
+    }
+
+    
+    /* ===== TOAST NOTIFICATION STYLES - CENTERED ===== */
+    .toast-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        display: none;
+        animation: fadeIn 0.3s ease-out;
+    }
+    
+    .toast-backdrop.show {
+        display: block;
+    }
+    
+    .toast-container-center {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 10000;
+        max-width: 500px;
+        width: 90%;
+    }
+    
+    .toast {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        margin-bottom: 10px;
+        padding: 20px 24px;
+        display: none;
+        animation: slideInScale 0.3s ease-out;
+        position: relative;
+        border-left: 5px solid;
+    }
+    
+    .toast.show {
+        display: block;
+    }
+    
+    .toast.success {
+        border-left-color: #28a745;
+        background: #d4edda;
+    }
+    
+    .toast.error {
+        border-left-color: #dc3545;
+        background: #f8d7da;
+    }
+    
+    .toast.warning {
+        border-left-color: #ffc107;
+        background: #fff3cd;
+    }
+    
+    .toast.loading {
+        border-left-color: #e74c3c;
+        background: #ffe6e6;
+    }
+    
+    .toast-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .toast-icon {
+        font-size: 24px;
+        flex-shrink: 0;
+    }
+    
+    .toast-message {
+        flex-grow: 1;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    
+    .toast.success .toast-message {
+        color: #155724;
+        font-weight: 600;
+    }
+    
+    .toast.error .toast-message {
+        color: #721c24;
+        font-weight: 600;
+    }
+    
+    .toast.warning .toast-message {
+        color: #856404;
+        font-weight: 600;
+    }
+    
+    .toast.loading .toast-message {
+        color: #c0392b;
+        font-weight: 600;
+    }
+    
+    .toast-close {
+        background: none;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        color: #999;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    
+    .toast-close:hover {
+        color: #333;
+    }
+    
+    .toast-spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #e74c3c;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        animation: spinToast 1s linear infinite;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes slideInScale {
+        from {
+            transform: scale(0.7);
+            opacity: 0;
+        }
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOut {
+        from {
+            transform: scale(1);
+            opacity: 1;
+        }
+        to {
+            transform: scale(0.7);
+            opacity: 0;
+        }
+    }
+    
+    .toast.hiding {
+        animation: slideOut 0.3s ease-out forwards;
+    }
+    
+    @keyframes spinToast {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    /* ===== END TOAST STYLES ===== */
+
+    @media print {
+      @page { 
+        size: portrait; 
+        margin: 0.4in 0.3in;
+      }
+      body { 
+        background: #fff !important; 
+        padding: 0; 
+        font-size: 9pt;
+      }
+      .container { 
+        box-shadow: none !important; 
+        max-width: 100% !important;
+        border-radius: 0 !important;
+      }
+      .header { 
+        background: #2c3e50 !important; 
+        padding: 12px 15px !important;
+        page-break-after: avoid;
+      }
+      .header h1 { 
+        font-size: 1.2em !important; 
+        margin-bottom: 3px !important;
+      }
+      .header div { 
+        font-size: 0.8em !important; 
+      }
+      .back-btn, .print-btn-container, #searchSection, #searchResults { 
+        display: none !important; 
+      }
+      .content { 
+        padding: 8px 10px !important; 
+      }
+      
+      /* Summary Table Print Styles */
+      .summary-table-container {
+        margin-bottom: 15px !important;
+        page-break-after: avoid;
+        page-break-inside: avoid;
+      }
+      .summary-table {
+        font-size: 8pt !important;
+        margin-bottom: 15px !important;
+        border: 2px solid #2c3e50 !important;
+      }
+      .summary-table th {
+        background: #2c3e50 !important;
+        color: #fff !important;
+        padding: 6px 4px !important;
+        font-size: 8pt !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .summary-table td {
+        padding: 6px 4px !important;
+        font-size: 8pt !important;
+        border: 1px solid #ccc !important;
+      }
+      .summary-table tr.current-month td {
+        background: #ffe6e6 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .summary-table tr.previous-month td {
+        background: #fff4e6 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .summary-table tr.past-month td {
+        background: #fff9e6 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .summary-table tr.older-months td {
+        background: #f3e6ff !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .summary-table tr.grand-total td {
+        background: #2c3e50 !important;
+        color: #fff !important;
+        font-weight: bold !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      
+      /* Section Print Styles */
+      .section { 
+        page-break-inside: avoid; 
+        margin-bottom: 15px !important; 
+        border: 2px solid #2c3e50 !important;
+      }
+      .section-header { 
+        background: #2c3e50 !important; 
+        color: #fff !important;
+        padding: 6px 10px !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .section-header h2 {
+        font-size: 1em !important;
+        margin: 0 !important;
+      }
+      .section-badge {
+        background: #555 !important;
+        padding: 4px 8px !important;
+        font-size: 0.8em !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .section-content {
+        border: none !important;
+      }
+      .results-table { 
+        font-size: 7.5pt !important;
+        border-collapse: collapse !important;
+        width: 100% !important;
+      }
+      .results-table th { 
+        background: #e8e8e8 !important; 
+        color: #000 !important;
+        padding: 5px 3px !important;
+        border: 1px solid #999 !important;
+        font-weight: bold !important;
+        text-align: left !important;
+        font-size: 7.5pt !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .results-table td { 
+        padding: 4px 3px !important;
+        border: 1px solid #ccc !important;
+        vertical-align: top !important;
+        background: #fff !important;
+        font-size: 7.5pt !important;
+      }
+      .results-table tr:nth-child(even) td {
+        background: #f9f9f9 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .emi-details {
+        font-size: 7pt !important;
+        line-height: 1.4 !important;
+      }
+      .emi-item {
+        padding: 1px 0 !important;
+        display: block !important;
+      }
+      .section-total {
+        background: #fff3cd !important;
+        border: 1px solid #f39c12 !important;
+        border-top: 2px solid #f39c12 !important;
+        padding: 6px 10px !important;
+        font-size: 8pt !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .no-data {
+        padding: 15px !important;
+        border: 1px solid #ccc !important;
+        font-size: 8pt !important;
+      }
+      .month-label {
+        font-weight: bold !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Toast Backdrop -->
+  <div class="toast-backdrop" id="toastBackdrop"></div>
+  
+  <!-- Toast Container -->
+  <div class="toast-container-center" id="toastContainer"></div>
+
+  <div class="container">
+    <div class="header">
+      <a class="back-btn" href="index.html">🏠 Home</a>
+      <h1 style="margin-bottom:6px">Overdue EMI Analysis</h1>
+      <div style="opacity:.9">Month-wise Pending EMI Report</div>
+    </div>
+
+    <div class="content">
+      <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p style="margin-top:15px">Loading overdue analysis...</p>
+      </div>
+
+      <div id="mainContent" style="display:none">
+        <!-- Search Section -->
+        <div id="searchSection" style="background:#f8f9fa;padding:20px;border-radius:8px;margin-bottom:25px;border:1px solid #dee2e6">
+          <h3 style="margin-bottom:15px;color:#2c3e50">🔍 Search Customer Overdue EMIs</h3>
+          <div style="display:flex;gap:15px;align-items:flex-end">
+            <div style="flex:1">
+              <label style="display:block;margin-bottom:8px;font-weight:600;color:#2c3e50">Loan Number</label>
+              <input 
+                type="text" 
+                id="searchLoanNumber" 
+                placeholder="Enter loan number to search..." 
+                style="width:100%;padding:12px;border:1px solid #ced4da;border-radius:6px;font-size:1em"
+                onkeypress="if(event.key==='Enter') searchLoanOverdue()"
+              />
+            </div>
+            <button 
+              onclick="searchLoanOverdue()" 
+              style="padding:12px 24px;background:#3498db;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:1em"
+            >
+              🔍 Search
+            </button>
+            <button 
+              onclick="clearSearch()" 
+              style="padding:12px 24px;background:#95a5a6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:1em"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <!-- Search Results Section -->
+        <div id="searchResults" style="display:none;margin-bottom:30px">
+          <div class="section" style="border:2px solid #3498db">
+            <div class="section-header" style="background:linear-gradient(135deg, #3498db, #2980b9)">
+              <h2>Search Results - Loan: <span id="searchedLoanNumber"></span></h2>
+              <span class="section-badge" id="searchResultCount">0 EMIs</span>
+            </div>
+            <div class="section-content">
+              <table class="results-table">
+                <thead>
+                  <tr>
+                    <th style="width:60px">EMI No</th>
+                    <th>Customer Name</th>
+                    <th>Mobile No</th>
+                    <th>Due Date</th>
+                    <th>Months Overdue</th>
+                    <th style="text-align:right">EMI Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody id="searchResultsBody"></tbody>
+              </table>
+              <div class="section-total" id="searchResultTotal"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Month-wise Summary Table -->
+        <div class="summary-table-container">
+          <div class="print-btn-container">
+            <button class="print-btn" onclick="window.print()">📄 Print Report</button>
+          </div>
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th style="width:30%">Period</th>
+                <th style="width:23%">Number of Customers</th>
+                <th style="width:23%">Total Amount Due (₹)</th>
+                <th style="width:24%">Number of Pending EMIs</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="current-month">
+                <td class="month-label"><span id="summaryCurrentMonthName">Current Month</span></td>
+                <td id="summaryCurrentCustomers">0</td>
+                <td id="summaryCurrentAmount">₹0</td>
+                <td id="summaryCurrentEMIs">0</td>
+              </tr>
+              <tr class="previous-month">
+                <td class="month-label"><span id="summaryPreviousMonthName">Previous Month</span></td>
+                <td id="summaryPreviousCustomers">0</td>
+                <td id="summaryPreviousAmount">₹0</td>
+                <td id="summaryPreviousEMIs">0</td>
+              </tr>
+              <tr class="past-month">
+                <td class="month-label"><span id="summaryPastMonthName">Past Month</span></td>
+                <td id="summaryPastCustomers">0</td>
+                <td id="summaryPastAmount">₹0</td>
+                <td id="summaryPastEMIs">0</td>
+              </tr>
+              <tr class="older-months">
+                <td class="month-label">All Previous Months</td>
+                <td id="summaryOlderCustomers">0</td>
+                <td id="summaryOlderAmount">₹0</td>
+                <td id="summaryOlderEMIs">0</td>
+              </tr>
+              <tr class="grand-total">
+                <td class="month-label">GRAND TOTAL</td>
+                <td id="summaryGrandTotalCustomers">0</td>
+                <td id="summaryGrandTotalAmount">₹0</td>
+                <td id="summaryGrandTotalEMIs">0</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Current Month Dues -->
+        <div class="section current-month">
+          <div class="section-header">
+            <h2>Current Month Dues - <span id="currentMonthName"></span></h2>
+            <span class="section-badge" id="currentMonthCount">0 Customers</span>
+          </div>
+          <div class="section-content">
+            <table class="results-table" id="currentMonthTable">
+              <thead>
+                <tr>
+                  <th style="width:40px">S.No</th>
+                  <th>Customer Name</th>
+                  <th>Mobile No</th>
+                  <th>Loan Number</th>
+                  <th>EMI Details</th>
+                  <th style="text-align:right">Total Due (₹)</th>
+                </tr>
+              </thead>
+              <tbody id="currentMonthBody"></tbody>
+            </table>
+            <div class="section-total" id="currentMonthTotal"></div>
+          </div>
+        </div>
+
+        <!-- Previous Month Dues -->
+        <div class="section previous-month">
+          <div class="section-header">
+            <h2>Previous Month Dues - <span id="previousMonthName"></span></h2>
+            <span class="section-badge" id="previousMonthCount">0 Customers</span>
+          </div>
+          <div class="section-content">
+            <table class="results-table" id="previousMonthTable">
+              <thead>
+                <tr>
+                  <th style="width:40px">S.No</th>
+                  <th>Customer Name</th>
+                  <th>Mobile No</th>
+                  <th>Loan Number</th>
+                  <th>EMI Details</th>
+                  <th style="text-align:right">Total Due (₹)</th>
+                </tr>
+              </thead>
+              <tbody id="previousMonthBody"></tbody>
+            </table>
+            <div class="section-total" id="previousMonthTotal"></div>
+          </div>
+        </div>
+
+        <!-- Past Month Dues -->
+        <div class="section past-month">
+          <div class="section-header">
+            <h2>Past Month Dues - <span id="pastMonthName"></span></h2>
+            <span class="section-badge" id="pastMonthCount">0 Customers</span>
+          </div>
+          <div class="section-content">
+            <table class="results-table" id="pastMonthTable">
+              <thead>
+                <tr>
+                  <th style="width:40px">S.No</th>
+                  <th>Customer Name</th>
+                  <th>Mobile No</th>
+                  <th>Loan Number</th>
+                  <th>EMI Details</th>
+                  <th style="text-align:right">Total Due (₹)</th>
+                </tr>
+              </thead>
+              <tbody id="pastMonthBody"></tbody>
+            </table>
+            <div class="section-total" id="pastMonthTotal"></div>
+          </div>
+        </div>
+
+        <!-- Older Dues -->
+        <div class="section older-dues">
+          <div class="section-header">
+            <h2>Older Dues (Before <span id="olderBeforeMonth"></span>)</h2>
+            <span class="section-badge" id="olderDuesCount">0 Customers</span>
+          </div>
+          <div class="section-content">
+            <table class="results-table" id="olderDuesTable">
+              <thead>
+                <tr>
+                  <th style="width:40px">S.No</th>
+                  <th>Customer Name</th>
+                  <th>Mobile No</th>
+                  <th>Loan Number</th>
+                  <th>EMI Details</th>
+                  <th style="text-align:right">Total Due (₹)</th>
+                </tr>
+              </thead>
+              <tbody id="olderDuesBody"></tbody>
+            </table>
+            <div class="section-total" id="olderDuesTotal"></div>
+          </div>
+        </div>
+
+        <!-- Multiple Months Overdue -->
+        <div class="section multiple-months">
+          <div class="section-header">
+            <h2>Multiple Months Overdue (2+ Months)</h2>
+            <span class="section-badge" id="multipleMonthsCount">0 Customers</span>
+          </div>
+          <div class="section-content">
+            <table class="results-table" id="multipleMonthsTable">
+              <thead>
+                <tr>
+                  <th style="width:40px">S.No</th>
+                  <th>Customer Name</th>
+                  <th>Mobile No</th>
+                  <th>Loan Number</th>
+                  <th>Months Overdue</th>
+                  <th>EMI Details</th>
+                  <th style="text-align:right">Total Due (₹)</th>
+                </tr>
+              </thead>
+              <tbody id="multipleMonthsBody"></tbody>
+            </table>
+            <div class="section-total" id="multipleMonthsTotal"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzPBMML2B8a6dMXMFL78dBIEeSRGG8yEhk2xn9BBEO_kx1kfan_Re73qOsIKAsjkQ8/exec';
+    const SECRET = 'ANVITHA_SUPER_SECRET_2025';
+
+    const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 
+                         'July', 'August', 'September', 'October', 'November', 'December'];
+
+    let allScheduleData = [];
+
+    // ===== TOAST NOTIFICATION SYSTEM =====
+    let currentLoadingToast = null;
+
+    function showToast(message, type = 'success', duration = 5000) {
+        const container = document.getElementById('toastContainer');
+        const backdrop = document.getElementById('toastBackdrop');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        let icon = '✓';
+        if (type === 'error') icon = '✕';
+        if (type === 'warning') icon = '⚠';
+        if (type === 'loading') icon = '<div class="toast-spinner"></div>';
+        
+        toast.innerHTML = `
+            <div class="toast-content">
+                <div class="toast-icon">${icon}</div>
+                <div class="toast-message">${message}</div>
+                ${type !== 'loading' ? '<button class="toast-close" onclick="closeToast(this)">×</button>' : ''}
+            </div>
+        `;
+        
+        container.appendChild(toast);
+        backdrop.classList.add('show');
+        setTimeout(() => toast.classList.add('show'), 10);
+        
+        if (type !== 'loading' && duration > 0) {
+            setTimeout(() => hideToast(toast), duration);
+        }
+        
+        return toast;
+    }
+
+    function hideToast(toast) {
+        const backdrop = document.getElementById('toastBackdrop');
+        const container = document.getElementById('toastContainer');
+        
+        toast.classList.add('hiding');
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+            if (container.children.length === 0) {
+                backdrop.classList.remove('show');
+            }
+        }, 300);
+    }
+
+    function closeToast(button) {
+        const toast = button.closest('.toast');
+        hideToast(toast);
+    }
+
+    function hideLoadingToasts() {
+        const loadingToasts = document.querySelectorAll('.toast.loading');
+        loadingToasts.forEach(toast => hideToast(toast));
+        if (currentLoadingToast) {
+            hideToast(currentLoadingToast);
+            currentLoadingToast = null;
+        }
+    }
+
+
+
+    document.addEventListener('DOMContentLoaded', function() {
+      loadOverdueAnalysis();
+    });
+
+    async function loadOverdueAnalysis() {
+      try {
+        document.getElementById('loading').style.display = 'none';
+        currentLoadingToast = showToast('📊 Loading overdue analysis...', 'loading', 0);
+        document.getElementById('mainContent').style.display = 'none';
+
+        const url = `${SCRIPT_URL}?action=getOverdueWithCustomerDetails&secret=${encodeURIComponent(SECRET)}`;
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+
+        if (data.status === 'success' && data.schedule) {
+          allScheduleData = data.schedule;
+          processAndDisplayData();
+        } else {
+          throw new Error(data.message || 'Failed to load schedule data');
+        }
+
+        hideLoadingToasts();
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+        showToast('✅ Overdue analysis loaded successfully', 'success', 4000);
+
+      } catch (err) {
+        console.error('Error loading overdue data:', err);
+        hideLoadingToasts();
+        document.getElementById('loading').style.display = 'none';
+        showToast('❌ Error loading overdue data: ' + err.message, 'error', 7000);
+      }
+    }
+
+    function parseDate(dateStr) {
+      if (!dateStr) return null;
+      
+      if (dateStr.includes('T')) {
+        return new Date(dateStr);
+      }
+      
+      if (typeof dateStr === 'string' && dateStr.match(/^\d{2}-\d{2}-\d{4}$/)) {
+        const [day, month, year] = dateStr.split('-');
+        return new Date(year, month - 1, day);
+      }
+      
+      if (typeof dateStr === 'string' && dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return new Date(dateStr);
+      }
+      
+      return new Date(dateStr);
+    }
+
+    function formatDate(date) {
+      if (!date) return '-';
+      const d = new Date(date);
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    }
+
+    function getMonthYearKey(date) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function processAndDisplayData() {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const previousMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const pastMonth = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+
+      const currentMonthName = `${MONTH_NAMES[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
+      const previousMonthName = `${MONTH_NAMES[previousMonth.getMonth()]} ${previousMonth.getFullYear()}`;
+      const pastMonthName = `${MONTH_NAMES[pastMonth.getMonth()]} ${pastMonth.getFullYear()}`;
+
+      document.getElementById('currentMonthName').textContent = currentMonthName;
+      document.getElementById('previousMonthName').textContent = previousMonthName;
+      document.getElementById('pastMonthName').textContent = pastMonthName;
+      document.getElementById('olderBeforeMonth').textContent = pastMonthName;
+      
+      // Update summary table month names
+      document.getElementById('summaryCurrentMonthName').textContent = currentMonthName;
+      document.getElementById('summaryPreviousMonthName').textContent = previousMonthName;
+      document.getElementById('summaryPastMonthName').textContent = pastMonthName;
+
+      const categories = {
+        currentMonth: {},
+        previousMonth: {},
+        pastMonth: {},
+        olderDues: {},
+        all: {}
+      };
+
+      allScheduleData.forEach(emi => {
+        const status = String(emi['Status'] || '').toLowerCase().trim();
+        const dueDate = parseDate(emi['Due Date']);
+        const amountPaid = emi['Amount Paid'];
+        
+        const isAmountPaidEmpty = (
+          amountPaid === '' || 
+          amountPaid === null || 
+          amountPaid === undefined || 
+          Number(amountPaid) === 0
+        );
+        
+        const isPending = (status === 'pending' && isAmountPaidEmpty);
+        const isOverdue = dueDate && dueDate < today;
+        
+        if (isPending && isOverdue) {
+          const loanNo = emi['Loan Number'] || '';
+          const customerName = emi['Customer Name'] || '';
+          const mobileNo = emi['Mobile No'] || emi['Mobile Number'] || emi['Mobile'] || '';
+          const emiAmount = Number(emi['EMI Amount'] || 0);
+          const emiNumber = emi['EMI Number'] || '';
+          
+          const key = `${loanNo}_${customerName}`;
+          const emiData = {
+            emiNumber: emiNumber,
+            amount: emiAmount,
+            dueDate: dueDate,
+            dueDateStr: formatDate(dueDate)
+          };
+
+          let category;
+          const dueDateMonth = new Date(dueDate.getFullYear(), dueDate.getMonth(), 1);
+          
+          if (getMonthYearKey(dueDateMonth) === getMonthYearKey(currentMonth)) {
+            category = categories.currentMonth;
+          } else if (getMonthYearKey(dueDateMonth) === getMonthYearKey(previousMonth)) {
+            category = categories.previousMonth;
+          } else if (getMonthYearKey(dueDateMonth) === getMonthYearKey(pastMonth)) {
+            category = categories.pastMonth;
+          } else if (dueDateMonth < pastMonth) {
+            category = categories.olderDues;
+          } else {
+            return;
+          }
+
+          if (!category[key]) {
+            category[key] = {
+              loanNumber: loanNo,
+              customerName: customerName,
+              mobileNo: mobileNo,
+              emis: []
+            };
+          }
+          category[key].emis.push(emiData);
+
+          if (!categories.all[key]) {
+            categories.all[key] = {
+              loanNumber: loanNo,
+              customerName: customerName,
+              mobileNo: mobileNo,
+              emis: []
+            };
+          }
+          categories.all[key].emis.push(emiData);
+        }
+      });
+
+      displaySection('currentMonth', categories.currentMonth, 'currentMonthBody', 'currentMonthCount', 'currentMonthTotal');
+      displaySection('previousMonth', categories.previousMonth, 'previousMonthBody', 'previousMonthCount', 'previousMonthTotal');
+      displaySection('pastMonth', categories.pastMonth, 'pastMonthBody', 'pastMonthCount', 'pastMonthTotal');
+      displaySection('olderDues', categories.olderDues, 'olderDuesBody', 'olderDuesCount', 'olderDuesTotal');
+      displayMultipleMonths(categories.all);
+
+      updateOverallStats(categories.all);
+      updateSummaryTable(categories);
+    }
+
+    function displaySection(categoryKey, data, tbodyId, countId, totalId) {
+      const tbody = document.getElementById(tbodyId);
+      tbody.innerHTML = '';
+
+      const customers = Object.values(data);
+      
+      if (customers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="no-data">No pending EMIs in this period</td></tr>';
+        document.getElementById(countId).textContent = '0 Customers';
+        document.getElementById(totalId).textContent = 'Total: ₹0';
+        return;
+      }
+
+      let sectionTotal = 0;
+      
+      customers.forEach((customer, index) => {
+        const sortedEMIs = customer.emis.sort((a, b) => a.emiNumber - b.emiNumber);
+        const customerTotal = sortedEMIs.reduce((sum, emi) => sum + emi.amount, 0);
+        sectionTotal += customerTotal;
+
+        const emiDetailsHTML = sortedEMIs.map(emi => 
+          `<div class="emi-item">
+            <strong>EMI #${emi.emiNumber}</strong> - ₹${emi.amount.toLocaleString('en-IN')} 
+            (Due: ${emi.dueDateStr})
+          </div>`
+        ).join('');
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><strong>${index + 1}</strong></td>
+          <td><strong>${customer.customerName}</strong></td>
+          <td>${customer.mobileNo || '-'}</td>
+          <td>${customer.loanNumber}</td>
+          <td><div class="emi-details">${emiDetailsHTML}</div></td>
+          <td style="text-align:right"><strong>₹${customerTotal.toLocaleString('en-IN')}</strong></td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      document.getElementById(countId).textContent = `${customers.length} Customer${customers.length > 1 ? 's' : ''}`;
+      document.getElementById(totalId).textContent = `Total: ₹${sectionTotal.toLocaleString('en-IN')}`;
+    }
+
+    function displayMultipleMonths(allData) {
+      const tbody = document.getElementById('multipleMonthsBody');
+      tbody.innerHTML = '';
+
+      const customers = Object.values(allData).filter(customer => {
+        const uniqueMonths = new Set(
+          customer.emis.map(emi => getMonthYearKey(emi.dueDate))
+        );
+        return uniqueMonths.size >= 2;
+      });
+
+      if (customers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="no-data">No customers with multiple months overdue</td></tr>';
+        document.getElementById('multipleMonthsCount').textContent = '0 Customers';
+        document.getElementById('multipleMonthsTotal').textContent = 'Total: ₹0';
+        return;
+      }
+
+      let sectionTotal = 0;
+
+      customers.forEach((customer, index) => {
+        const sortedEMIs = customer.emis.sort((a, b) => a.dueDate - b.dueDate);
+        const customerTotal = sortedEMIs.reduce((sum, emi) => sum + emi.amount, 0);
+        sectionTotal += customerTotal;
+
+        const uniqueMonths = new Set(
+          sortedEMIs.map(emi => getMonthYearKey(emi.dueDate))
+        );
+
+        const emiDetailsHTML = sortedEMIs.map(emi => 
+          `<div class="emi-item">
+            <strong>EMI #${emi.emiNumber}</strong> - ₹${emi.amount.toLocaleString('en-IN')} 
+            (Due: ${emi.dueDateStr})
+          </div>`
+        ).join('');
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><strong>${index + 1}</strong></td>
+          <td><strong>${customer.customerName}</strong></td>
+          <td>${customer.mobileNo || '-'}</td>
+          <td>${customer.loanNumber}</td>
+          <td style="color:#c0392b;font-weight:600">${uniqueMonths.size} Months</td>
+          <td><div class="emi-details">${emiDetailsHTML}</div></td>
+          <td style="text-align:right"><strong>₹${customerTotal.toLocaleString('en-IN')}</strong></td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      document.getElementById('multipleMonthsCount').textContent = `${customers.length} Customer${customers.length > 1 ? 's' : ''}`;
+      document.getElementById('multipleMonthsTotal').textContent = `Total: ₹${sectionTotal.toLocaleString('en-IN')}`;
+    }
+
+    function updateOverallStats(allData) {
+      const customers = Object.values(allData);
+      const totalCustomers = customers.length;
+      const totalAmount = customers.reduce((sum, c) => 
+        sum + c.emis.reduce((s, e) => s + e.amount, 0), 0);
+      const totalEMIs = customers.reduce((sum, c) => sum + c.emis.length, 0);
+    }
+
+    function updateSummaryTable(categories) {
+      // Calculate stats for each category
+      const currentCustomers = Object.values(categories.currentMonth);
+      const currentCustomerCount = currentCustomers.length;
+      const currentAmount = currentCustomers.reduce((sum, c) => 
+        sum + c.emis.reduce((s, e) => s + e.amount, 0), 0);
+      const currentEMIs = currentCustomers.reduce((sum, c) => sum + c.emis.length, 0);
+
+      const previousCustomers = Object.values(categories.previousMonth);
+      const previousCustomerCount = previousCustomers.length;
+      const previousAmount = previousCustomers.reduce((sum, c) => 
+        sum + c.emis.reduce((s, e) => s + e.amount, 0), 0);
+      const previousEMIs = previousCustomers.reduce((sum, c) => sum + c.emis.length, 0);
+
+      const pastCustomers = Object.values(categories.pastMonth);
+      const pastCustomerCount = pastCustomers.length;
+      const pastAmount = pastCustomers.reduce((sum, c) => 
+        sum + c.emis.reduce((s, e) => s + e.amount, 0), 0);
+      const pastEMIs = pastCustomers.reduce((sum, c) => sum + c.emis.length, 0);
+
+      const olderCustomers = Object.values(categories.olderDues);
+      const olderCustomerCount = olderCustomers.length;
+      const olderAmount = olderCustomers.reduce((sum, c) => 
+        sum + c.emis.reduce((s, e) => s + e.amount, 0), 0);
+      const olderEMIs = olderCustomers.reduce((sum, c) => sum + c.emis.length, 0);
+
+      // Update current month
+      document.getElementById('summaryCurrentCustomers').textContent = currentCustomerCount;
+      document.getElementById('summaryCurrentAmount').textContent = '₹' + currentAmount.toLocaleString('en-IN');
+      document.getElementById('summaryCurrentEMIs').textContent = currentEMIs;
+
+      // Update previous month
+      document.getElementById('summaryPreviousCustomers').textContent = previousCustomerCount;
+      document.getElementById('summaryPreviousAmount').textContent = '₹' + previousAmount.toLocaleString('en-IN');
+      document.getElementById('summaryPreviousEMIs').textContent = previousEMIs;
+
+      // Update past month
+      document.getElementById('summaryPastCustomers').textContent = pastCustomerCount;
+      document.getElementById('summaryPastAmount').textContent = '₹' + pastAmount.toLocaleString('en-IN');
+      document.getElementById('summaryPastEMIs').textContent = pastEMIs;
+
+      // Update older months
+      document.getElementById('summaryOlderCustomers').textContent = olderCustomerCount;
+      document.getElementById('summaryOlderAmount').textContent = '₹' + olderAmount.toLocaleString('en-IN');
+      document.getElementById('summaryOlderEMIs').textContent = olderEMIs;
+
+      // Calculate grand totals
+      const allCustomers = Object.values(categories.all);
+      const grandTotalCustomers = allCustomers.length;
+      const grandTotalAmount = allCustomers.reduce((sum, c) => 
+        sum + c.emis.reduce((s, e) => s + e.amount, 0), 0);
+      const grandTotalEMIs = allCustomers.reduce((sum, c) => sum + c.emis.length, 0);
+
+      document.getElementById('summaryGrandTotalCustomers').textContent = grandTotalCustomers;
+      document.getElementById('summaryGrandTotalAmount').textContent = '₹' + grandTotalAmount.toLocaleString('en-IN');
+      document.getElementById('summaryGrandTotalEMIs').textContent = grandTotalEMIs;
+    }
+
+    function searchLoanOverdue() {
+      const loanNumber = document.getElementById('searchLoanNumber').value.trim();
+      
+      if (!loanNumber) {
+        showToast('Please enter a loan number to search', 'warning', 4000);
+        return;
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const loanEMIs = allScheduleData.filter(emi => {
+        const status = String(emi['Status'] || '').toLowerCase().trim();
+        const dueDate = parseDate(emi['Due Date']);
+        const amountPaid = emi['Amount Paid'];
+        const loanNo = String(emi['Loan Number'] || '').trim();
+        
+        const isAmountPaidEmpty = (
+          amountPaid === '' || 
+          amountPaid === null || 
+          amountPaid === undefined || 
+          Number(amountPaid) === 0
+        );
+        
+        const isPending = (status === 'pending' && isAmountPaidEmpty);
+        const isOverdue = dueDate && dueDate < today;
+        const matchesLoan = loanNo.toLowerCase() === loanNumber.toLowerCase();
+        
+        return isPending && isOverdue && matchesLoan;
+      });
+
+      if (loanEMIs.length === 0) {
+        showToast(`No overdue EMIs found for loan number: ${loanNumber}`, 'warning', 5000);
+        return;
+      }
+
+      loanEMIs.sort((a, b) => Number(a['EMI Number']) - Number(b['EMI Number']));
+
+      const tbody = document.getElementById('searchResultsBody');
+      tbody.innerHTML = '';
+      
+      let totalAmount = 0;
+
+      loanEMIs.forEach((emi, index) => {
+        const dueDate = parseDate(emi['Due Date']);
+        const monthsOverdue = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24 * 30));
+        const amount = Number(emi['EMI Amount'] || 0);
+        totalAmount += amount;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><strong>${emi['EMI Number']}</strong></td>
+          <td>${emi['Customer Name'] || '-'}</td>
+          <td>${emi['Mobile No'] || emi['Mobile Number'] || emi['Mobile'] || '-'}</td>
+          <td>${formatDate(dueDate)}</td>
+          <td style="color:${monthsOverdue >= 3 ? '#c0392b' : monthsOverdue >= 2 ? '#e67e22' : '#f39c12'};font-weight:600">
+            ${monthsOverdue} month${monthsOverdue !== 1 ? 's' : ''}
+          </td>
+          <td style="text-align:right"><strong>₹${amount.toLocaleString('en-IN')}</strong></td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      document.getElementById('searchedLoanNumber').textContent = loanNumber;
+      document.getElementById('searchResultCount').textContent = `${loanEMIs.length} Overdue EMI${loanEMIs.length !== 1 ? 's' : ''}`;
+      document.getElementById('searchResultTotal').textContent = `Total Overdue: ₹${totalAmount.toLocaleString('en-IN')}`;
+      document.getElementById('searchResults').style.display = 'block';
+
+      showToast(`✅ Found ${loanEMIs.length} overdue EMI${loanEMIs.length !== 1 ? 's' : ''} for loan ${loanNumber}`, 'success', 5000);
+      document.getElementById('searchResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function clearSearch() {
+      document.getElementById('searchLoanNumber').value = '';
+      document.getElementById('searchResults').style.display = 'none';
+      showToast('Search cleared', 'success', 3000);
+    }
+  </script>
+</body>
+</html>

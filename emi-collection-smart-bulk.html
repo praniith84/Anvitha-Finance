@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Anvitha Finance - Smart Bulk EMI Collection</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Segoe UI,Tahoma,Arial,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);padding:18px;padding-left:100px;display:flex}
+    
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 80px;
+        height: 100vh;
+        background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px 0;
+        gap: 15px;
+        box-shadow: 2px 0 15px rgba(0,0,0,0.2);
+        z-index: 1000;
+    }
+    
+    .sidebar-logo {
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: white;
+        font-weight: bold;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
+    }
+    
+    .sidebar-btn {
+        width: 55px;
+        height: 55px;
+        border-radius: 12px;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        position: relative;
+        color: white;
+    }
+    
+    .sidebar-btn:hover {
+        transform: translateX(5px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar-btn.home {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .sidebar-tooltip {
+        position: absolute;
+        left: 70px;
+        background: rgba(0,0,0,0.9);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        white-space: nowrap;
+        font-size: 12px;
+        font-weight: 500;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s;
+        z-index: 1001;
+    }
+    
+    .sidebar-btn:hover .sidebar-tooltip {
+        opacity: 1;
+    }
+    
+    .container{max-width:1600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.12);flex:1}
+    .header{padding:28px;text-align:center;background:linear-gradient(135deg,#2c3e50,#3498db);color:#fff;position:relative}
+    .header h1{font-size:2rem;margin-bottom:6px;text-shadow:2px 2px 4px rgba(0,0,0,0.3)}
+    .header-subtitle{opacity:0.9;font-size:1rem}
+    
+    .content{padding:22px}
+    
+    .workflow-steps {
+        display: flex;
+        justify-content: space-around;
+        margin-bottom: 25px;
+        padding: 20px;
+        background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+        border-radius: 10px;
+    }
+    
+    .step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex: 1;
+        position: relative;
+    }
+    
+    .step-number {
+        width: 40px;
+        height: 40px;
+        background: #fff;
+        border: 3px solid #3498db;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 18px;
+        color: #3498db;
+        margin-bottom: 10px;
+    }
+    
+    .step.active .step-number {
+        background: #3498db;
+        color: white;
+    }
+    
+    .step.completed .step-number {
+        background: #27ae60;
+        border-color: #27ae60;
+        color: white;
+    }
+    
+    .step-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: #2c3e50;
+        text-align: center;
+    }
+    
+    .step::after {
+        content: '→';
+        position: absolute;
+        right: -30px;
+        top: 15px;
+        font-size: 24px;
+        color: #3498db;
+    }
+    
+    .step:last-child::after {
+        display: none;
+    }
+    
+    .bulk-controls {
+        margin-bottom: 20px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .bulk-table-container {
+        overflow-x: auto;
+        margin-bottom: 20px;
+        border: 1px solid #e6e9ee;
+        border-radius: 8px;
+        max-height: 600px;
+        overflow-y: auto;
+    }
+    
+    .bulk-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+    }
+    
+    .bulk-table thead {
+        background: linear-gradient(135deg, #3498db, #2c3e50);
+        color: white;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .bulk-table th {
+        padding: 12px 8px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 13px;
+        border-bottom: 2px solid #2c3e50;
+    }
+    
+    .bulk-table td {
+        padding: 8px;
+        border-bottom: 1px solid #e6e9ee;
+    }
+    
+    .bulk-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .bulk-table tbody tr.fetched {
+        background: #e8f5e9;
+    }
+    
+    .bulk-table tbody tr.error {
+        background: #ffebee;
+    }
+    
+    .bulk-table input, .bulk-table select {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #e6e9ee;
+        border-radius: 4px;
+        font-size: 13px;
+        background: white;
+    }
+    
+    .bulk-table input:focus, .bulk-table select:focus {
+        outline: none;
+        border-color: #3498db;
+        background: #f0f8ff;
+    }
+    
+    .bulk-table input:read-only {
+        background: #f0f8ff;
+        color: #2c3e50;
+        font-weight: 500;
+    }
+    
+    .bulk-table input.error {
+        border-color: #e74c3c;
+        background: #fff5f5;
+    }
+    
+    .row-number {
+        text-align: center;
+        font-weight: 600;
+        color: #6c757d;
+        min-width: 40px;
+    }
+    
+    .status-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 5px;
+    }
+    
+    .status-indicator.pending {
+        background: #ffc107;
+    }
+    
+    .status-indicator.fetched {
+        background: #27ae60;
+    }
+    
+    .status-indicator.error {
+        background: #e74c3c;
+    }
+    
+    .delete-row-btn {
+        background: #e74c3c;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.3s;
+    }
+    
+    .delete-row-btn:hover {
+        background: #c0392b;
+        transform: scale(1.05);
+    }
+    
+    .btn{
+        display:inline-block;
+        padding:10px 20px;
+        border-radius:8px;
+        border:none;
+        color:#fff;
+        cursor:pointer;
+        transition:all 0.3s;
+        font-weight:600;
+        font-size:14px;
+    }
+    
+    .btn:hover:not(:disabled){
+        transform:translateY(-2px);
+        box-shadow:0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .btn.primary{background:#3498db}
+    .btn.primary:hover{background:#2980b9}
+    .btn.success{background:#27ae60}
+    .btn.success:hover{background:#229954}
+    .btn.danger{background:#e74c3c}
+    .btn.danger:hover{background:#c0392b}
+    .btn.secondary{background:#95a5a6}
+    .btn.secondary:hover{background:#7f8c8d}
+    .btn.info{background:#17a2b8}
+    .btn.info:hover{background:#138496}
+    
+    .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .btn-icon {
+        margin-right: 5px;
+    }
+    
+    .message{
+        padding:14px;
+        border-radius:8px;
+        margin-bottom:12px;
+        display:none;
+        animation:slideIn 0.3s;
+        font-weight:500;
+    }
+    .message.success{background:#d4edda;color:#155724;border-left:4px solid #28a745}
+    .message.error{background:#f8d7da;color:#721c24;border-left:4px solid #dc3545}
+    .message.warning{background:#fff3cd;color:#856404;border-left:4px solid #ffc107}
+    .message.info{background:#d1ecf1;color:#0c5460;border-left:4px solid #17a2b8}
+    @keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+    
+    .progress-container {
+        display: none;
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+    }
+    
+    .progress-container.show {
+        display: block;
+    }
+    
+    .progress-bar-wrapper {
+        width: 100%;
+        height: 30px;
+        background: #e9ecef;
+        border-radius: 15px;
+        overflow: hidden;
+        margin-bottom: 10px;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #3498db, #2980b9);
+        width: 0%;
+        transition: width 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 14px;
+    }
+    
+    .progress-bar.fetch {
+        background: linear-gradient(90deg, #f39c12, #e67e22);
+    }
+    
+    .progress-bar.save {
+        background: linear-gradient(90deg, #27ae60, #229954);
+    }
+    
+    .progress-text {
+        text-align: center;
+        font-size: 14px;
+        color: #495057;
+        font-weight: 500;
+    }
+    
+    .results-summary {
+        margin-top: 20px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border-left: 4px solid #3498db;
+        display: none;
+    }
+    
+    .results-summary.show {
+        display: block;
+    }
+    
+    .results-summary h3 {
+        margin-bottom: 15px;
+        color: #2c3e50;
+    }
+    
+    .results-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 10px;
+    }
+    
+    .result-card {
+        padding: 15px;
+        border-radius: 6px;
+        text-align: center;
+    }
+    
+    .result-card.success {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .result-card.error {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .result-card.total {
+        background: #d1ecf1;
+        color: #0c5460;
+    }
+    
+    .result-card .number {
+        font-size: 36px;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .result-card .label {
+        font-size: 14px;
+        font-weight: 500;
+    }
+    
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+    
+    .loading-overlay.show {
+        display: flex;
+    }
+    
+    .loading-spinner {
+        background: white;
+        padding: 30px 40px;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 15px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .loading-text {
+        font-size: 16px;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    .help-text {
+        background: #e3f2fd;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border-left: 4px solid #2196f3;
+        font-size: 14px;
+        color: #1565c0;
+    }
+    
+    .help-text strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 15px;
+    }
+    
+    .help-text ul {
+        margin: 10px 0 0 20px;
+        line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <div class="sidebar-logo">A</div>
+    <button class="sidebar-btn home" onclick="window.location.href='index.html'">
+      <span class="sidebar-tooltip">Home</span>
+      🏠
+    </button>
+  </div>
+
+  <div class="container">
+    <div class="header">
+      <h1>🚀 Smart Bulk EMI Collection Entry</h1>
+      <p class="header-subtitle">Enter loan numbers → Fetch details → Add Collection IDs → Save all at once</p>
+    </div>
+
+    <div class="workflow-steps">
+      <div class="step active" id="step1">
+        <div class="step-number">1</div>
+        <div class="step-title">Enter Loan Numbers</div>
+      </div>
+      <div class="step" id="step2">
+        <div class="step-number">2</div>
+        <div class="step-title">Fetch Details</div>
+      </div>
+      <div class="step" id="step3">
+        <div class="step-number">3</div>
+        <div class="step-title">Add Collection IDs</div>
+      </div>
+      <div class="step" id="step4">
+        <div class="step-number">4</div>
+        <div class="step-title">Save All</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div id="message"></div>
+      
+      <div class="help-text">
+        <strong>📋 Quick Instructions:</strong>
+        <ul>
+          <li><strong>Step 1:</strong> Add rows and enter Loan Numbers in the first column</li>
+          <li><strong>Step 2:</strong> Click "🔍 Fetch All Details" to auto-fill customer data from sheets</li>
+          <li><strong>Step 3:</strong> Review fetched data and enter Collection IDs</li>
+          <li><strong>Step 4:</strong> Click "💾 Save All Collections" to save everything at once</li>
+        </ul>
+      </div>
+      
+      <div class="bulk-controls">
+        <button class="btn primary" onclick="addBulkRow()"><span class="btn-icon">➕</span>Add Row</button>
+        <button class="btn primary" onclick="addMultipleRows(5)"><span class="btn-icon">➕</span>Add 5 Rows</button>
+        <button class="btn primary" onclick="addMultipleRows(10)"><span class="btn-icon">➕</span>Add 10 Rows</button>
+        <button class="btn secondary" onclick="clearAllRows()"><span class="btn-icon">🗑️</span>Clear All</button>
+        <div style="flex: 1;"></div>
+        <button class="btn info" onclick="fetchAllDetails()" id="fetchBtn"><span class="btn-icon">🔍</span>Fetch All Details</button>
+        <button class="btn success" onclick="saveAllCollections()" id="saveAllBtn" disabled><span class="btn-icon">💾</span>Save All Collections</button>
+        <span style="font-weight: 600; color: #2c3e50;">
+          Rows: <span id="rowCount">0</span>
+        </span>
+      </div>
+
+      <div class="bulk-table-container">
+        <table class="bulk-table">
+          <thead>
+            <tr>
+              <th style="width: 40px;">#</th>
+              <th style="width: 40px;">✓</th>
+              <th style="width: 130px;">Loan Number *</th>
+              <th style="width: 200px;">Customer Name</th>
+              <th style="width: 110px;">EMI Amount</th>
+              <th style="width: 90px;">EMI Month</th>
+              <th style="width: 130px;">Collection Date</th>
+              <th style="width: 120px;">Amount Paid</th>
+              <th style="width: 150px;">Collection ID *</th>
+              <th style="width: 70px;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="bulkTableBody">
+          </tbody>
+        </table>
+      </div>
+
+      <div class="progress-container" id="progressContainer">
+        <div class="progress-bar-wrapper">
+          <div class="progress-bar" id="progressBar">0%</div>
+        </div>
+        <div class="progress-text" id="progressText">Processing...</div>
+      </div>
+
+      <div class="results-summary" id="resultsSummary">
+        <h3>📊 Operation Results</h3>
+        <div class="results-grid">
+          <div class="result-card total">
+            <div class="number" id="totalProcessed">0</div>
+            <div class="label">Total Processed</div>
+          </div>
+          <div class="result-card success">
+            <div class="number" id="successCount">0</div>
+            <div class="label">✓ Successful</div>
+          </div>
+          <div class="result-card error">
+            <div class="number" id="failedCount">0</div>
+            <div class="label">✗ Failed</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <div class="loading-text" id="loadingText">Processing...</div>
+    </div>
+  </div>
+
+  <script>
+    // ===== CONFIGURATION - CORRECT SECRET CODE =====
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwt2O1n4lbPE-_UrGxEqOQSCVFLNMNpZEZ2hfg7Gvj4RQv5x62YiVV7jMbH4FXPCNtm/exec';
+    const SECRET = 'ANVITHA_SUPER_SECRET_2025';  // CORRECT SECRET CODE
+    
+    let rowCounter = 0;
+    let fetchedRows = new Set();
+
+    window.onload = function() {
+      for (let i = 0; i < 5; i++) {
+        addBulkRow();
+      }
+    };
+
+    function updateWorkflowStep(stepNumber) {
+      document.querySelectorAll('.step').forEach(step => {
+        step.classList.remove('active');
+      });
+      
+      for (let i = 1; i < stepNumber; i++) {
+        document.getElementById(`step${i}`).classList.add('completed');
+      }
+      
+      document.getElementById(`step${stepNumber}`).classList.add('active');
+    }
+
+    function addBulkRow() {
+      rowCounter++;
+      const tbody = document.getElementById('bulkTableBody');
+      const row = document.createElement('tr');
+      row.id = `row-${rowCounter}`;
+      row.dataset.rowId = rowCounter;
+      
+      const today = new Date().toISOString().split('T')[0];
+      
+      row.innerHTML = `
+        <td class="row-number">${rowCounter}</td>
+        <td class="status-cell"><span class="status-indicator pending"></span></td>
+        <td><input type="text" class="loan-number" placeholder="428" data-field="loan" /></td>
+        <td><input type="text" class="customer-name" placeholder="Auto-filled" readonly /></td>
+        <td><input type="number" class="emi-amount" placeholder="0" readonly step="0.01" /></td>
+        <td><input type="text" class="emi-month" placeholder="0" readonly /></td>
+        <td><input type="date" class="collection-date" value="${today}" /></td>
+        <td><input type="number" class="amount-paid" placeholder="0" step="0.01" min="0" /></td>
+        <td><input type="text" class="collection-id" placeholder="C${String(rowCounter).padStart(3, '0')}" data-field="collection" /></td>
+        <td><button class="delete-row-btn" onclick="deleteRow('row-${rowCounter}')">🗑️</button></td>
+      `;
+      
+      tbody.appendChild(row);
+      updateRowCount();
+      updateWorkflowStep(1);
+    }
+
+    function addMultipleRows(count) {
+      for (let i = 0; i < count; i++) {
+        addBulkRow();
+      }
+      showMessage(`${count} rows added successfully`, 'success');
+    }
+
+    function deleteRow(rowId) {
+      const row = document.getElementById(rowId);
+      if (row) {
+        const rowIdNum = row.dataset.rowId;
+        fetchedRows.delete(rowIdNum);
+        row.remove();
+        updateRowCount();
+        renumberRows();
+      }
+    }
+
+    function clearAllRows() {
+      if (confirm('Are you sure you want to clear all rows? This cannot be undone.')) {
+        document.getElementById('bulkTableBody').innerHTML = '';
+        rowCounter = 0;
+        fetchedRows.clear();
+        updateRowCount();
+        hideResults();
+        document.getElementById('saveAllBtn').disabled = true;
+        showMessage('All rows cleared', 'info');
+        updateWorkflowStep(1);
+      }
+    }
+
+    function updateRowCount() {
+      const count = document.getElementById('bulkTableBody').children.length;
+      document.getElementById('rowCount').textContent = count;
+    }
+
+    function renumberRows() {
+      const rows = document.querySelectorAll('#bulkTableBody tr');
+      rows.forEach((row, index) => {
+        const rowNum = row.querySelector('.row-number');
+        if (rowNum) {
+          rowNum.textContent = index + 1;
+        }
+      });
+    }
+
+    async function fetchAllDetails() {
+      const rows = document.querySelectorAll('#bulkTableBody tr');
+      
+      if (rows.length === 0) {
+        showMessage('Please add at least one row first', 'error');
+        return;
+      }
+      
+      const loanNumbers = [];
+      rows.forEach((row, index) => {
+        const loanInput = row.querySelector('.loan-number');
+        const loanNo = loanInput.value.trim();
+        if (loanNo) {
+          loanNumbers.push({ row, loanNo, index });
+        }
+      });
+      
+      if (loanNumbers.length === 0) {
+        showMessage('Please enter at least one loan number', 'error');
+        return;
+      }
+      
+      const fetchBtn = document.getElementById('fetchBtn');
+      fetchBtn.disabled = true;
+      fetchBtn.textContent = '⏳ Fetching...';
+      
+      showProgress('fetch');
+      updateWorkflowStep(2);
+      
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (let i = 0; i < loanNumbers.length; i++) {
+        const { row, loanNo, index } = loanNumbers[i];
+        updateProgress(i + 1, loanNumbers.length, 'fetch', `Fetching details for Loan ${loanNo}...`);
+        
+        try {
+          const customerRes = await fetch(`${SCRIPT_URL}?action=lookupCustomer&loanNo=${encodeURIComponent(loanNo)}&secret=${encodeURIComponent(SECRET)}`);
+          const customerData = await customerRes.json();
+          
+          if (customerData.status === 'success' && customerData.data) {
+            const ledgerData = customerData.data;
+            
+            const scheduleRes = await fetch(`${SCRIPT_URL}?action=getEMISchedule&loanNo=${encodeURIComponent(loanNo)}&secret=${encodeURIComponent(SECRET)}`);
+            const scheduleData = await scheduleRes.json();
+            
+            let nextPendingEMI = null;
+            let emiAmount = ledgerData['Total EMI'] || 0;
+            
+            if (scheduleData.status === 'success' && scheduleData.schedule) {
+              for (const emi of scheduleData.schedule) {
+                const status = (emi['Status'] || '').toLowerCase();
+                if (status === 'pending') {
+                  nextPendingEMI = emi['EMI Number'];
+                  emiAmount = emi['EMI Amount'] || emiAmount;
+                  break;
+                }
+              }
+            }
+            
+            row.querySelector('.customer-name').value = ledgerData['Name of the customer'] || '';
+            row.querySelector('.emi-amount').value = emiAmount;
+            row.querySelector('.emi-month').value = nextPendingEMI || '';
+            row.querySelector('.amount-paid').value = emiAmount;
+            
+            row.classList.remove('error');
+            row.classList.add('fetched');
+            row.querySelector('.status-indicator').classList.remove('pending', 'error');
+            row.querySelector('.status-indicator').classList.add('fetched');
+            
+            fetchedRows.add(row.dataset.rowId);
+            successCount++;
+            
+          } else {
+            row.classList.remove('fetched');
+            row.classList.add('error');
+            row.querySelector('.status-indicator').classList.remove('pending', 'fetched');
+            row.querySelector('.status-indicator').classList.add('error');
+            errorCount++;
+          }
+          
+        } catch (error) {
+          console.error('Error fetching details:', error);
+          row.classList.remove('fetched');
+          row.classList.add('error');
+          row.querySelector('.status-indicator').classList.remove('pending', 'fetched');
+          row.querySelector('.status-indicator').classList.add('error');
+          errorCount++;
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      hideProgress();
+      
+      fetchBtn.disabled = false;
+      fetchBtn.textContent = '🔍 Fetch All Details';
+      
+      if (successCount > 0) {
+        document.getElementById('saveAllBtn').disabled = false;
+        updateWorkflowStep(3);
+      }
+      
+      if (errorCount === 0) {
+        showMessage(`✓ Successfully fetched details for all ${successCount} loans! Now add Collection IDs and save.`, 'success');
+      } else {
+        showMessage(`⚠ Fetched ${successCount} loans successfully. ${errorCount} failed (marked in red). Please check loan numbers.`, 'warning');
+      }
+    }
+
+    function validateRow(row) {
+      const loanNumber = row.querySelector('.loan-number').value.trim();
+      const collectionId = row.querySelector('.collection-id').value.trim();
+      const customerName = row.querySelector('.customer-name').value.trim();
+      const amountPaid = row.querySelector('.amount-paid').value.trim();
+      
+      let errors = [];
+      
+      if (!loanNumber) errors.push('Loan Number is required');
+      if (!collectionId) errors.push('Collection ID is required');
+      if (!customerName) errors.push('Customer data not fetched - click Fetch Details first');
+      if (!amountPaid || parseFloat(amountPaid) <= 0) errors.push('Amount Paid is required and must be greater than 0');
+      
+      return {
+        isValid: errors.length === 0,
+        errors: errors
+      };
+    }
+
+    function getRowData(row, rowIndex) {
+      return {
+        rowIndex: rowIndex,
+        rowElement: row,
+        loanNumber: row.querySelector('.loan-number').value.trim(),
+        customerName: row.querySelector('.customer-name').value.trim(),
+        emiAmount: parseFloat(row.querySelector('.emi-amount').value) || 0,
+        emiMonth: row.querySelector('.emi-month').value.trim(),
+        collectionDate: row.querySelector('.collection-date').value,
+        amountPaid: parseFloat(row.querySelector('.amount-paid').value) || 0,
+        collectionId: row.querySelector('.collection-id').value.trim()
+      };
+    }
+
+    async function saveAllCollections() {
+      const rows = document.querySelectorAll('#bulkTableBody tr');
+      
+      if (rows.length === 0) {
+        showMessage('Please add at least one row to save', 'error');
+        return;
+      }
+      
+      const allData = [];
+      const validationErrors = [];
+      
+      rows.forEach((row, index) => {
+        const validation = validateRow(row);
+        if (!validation.isValid) {
+          validationErrors.push(`Row ${index + 1}: ${validation.errors.join(', ')}`);
+          row.style.background = '#fff5f5';
+        } else {
+          row.style.background = '';
+          const data = getRowData(row, index + 1);
+          if (data.collectionId && data.loanNumber) {
+            allData.push(data);
+          }
+        }
+      });
+      
+      if (validationErrors.length > 0) {
+        showMessage(`Validation errors found in ${validationErrors.length} row(s). Please check rows highlighted in red.`, 'error');
+        return;
+      }
+      
+      if (allData.length === 0) {
+        showMessage('No valid data to save. Please fill in at least one complete row.', 'error');
+        return;
+      }
+      
+      if (!confirm(`You are about to save ${allData.length} collection records. Continue?`)) {
+        return;
+      }
+      
+      const saveBtn = document.getElementById('saveAllBtn');
+      saveBtn.disabled = true;
+      saveBtn.textContent = '⏳ Saving...';
+      
+      showProgress('save');
+      hideResults();
+      updateWorkflowStep(4);
+      
+      let successCount = 0;
+      let failedCount = 0;
+      const failedRows = [];
+      
+      for (let i = 0; i < allData.length; i++) {
+        const record = allData[i];
+        updateProgress(i + 1, allData.length, 'save', `Saving collection ${record.collectionId}...`);
+        
+        try {
+          const payload = {
+            action: 'recordCollection',
+            secret: SECRET,
+            record: {
+              'Collection ID': record.collectionId,
+              'Loan Number': record.loanNumber,
+              'Customer Name': record.customerName,
+              'Collection Date': record.collectionDate,
+              'EMI Amount': record.emiAmount,
+              'Amount Paid': record.amountPaid,
+              'EMI Month': record.emiMonth,
+              'Status': record.amountPaid >= record.emiAmount ? 'Paid' : 'Partial'
+            }
+          };
+          
+          const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify(payload)
+          });
+          
+          const result = await response.json();
+          
+          if (result.status === 'success') {
+            successCount++;
+            record.rowElement.style.background = '#d4edda';
+            record.rowElement.querySelector('.status-indicator').style.background = '#28a745';
+          } else {
+            failedCount++;
+            failedRows.push(record.rowIndex);
+            record.rowElement.style.background = '#f8d7da';
+            record.rowElement.querySelector('.status-indicator').style.background = '#dc3545';
+          }
+          
+        } catch (error) {
+          failedCount++;
+          failedRows.push(record.rowIndex);
+          console.error('Error saving record:', error);
+          record.rowElement.style.background = '#f8d7da';
+          record.rowElement.querySelector('.status-indicator').style.background = '#dc3545';
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      hideProgress();
+      
+      showResults(allData.length, successCount, failedCount);
+      
+      saveBtn.disabled = false;
+      saveBtn.textContent = '💾 Save All Collections';
+      
+      if (failedCount === 0) {
+        showMessage(`✓ All ${successCount} collections saved successfully!`, 'success');
+        
+        setTimeout(() => {
+          rows.forEach(row => {
+            if (row.style.background === 'rgb(212, 237, 218)') {
+              const rowId = row.dataset.rowId;
+              fetchedRows.delete(rowId);
+              row.remove();
+            }
+          });
+          updateRowCount();
+          renumberRows();
+          
+          if (document.getElementById('bulkTableBody').children.length === 0) {
+            document.getElementById('saveAllBtn').disabled = true;
+            updateWorkflowStep(1);
+          }
+        }, 3000);
+        
+      } else {
+        showMessage(`⚠ Saved ${successCount} collections. ${failedCount} failed (marked in red). Please review and retry failed rows.`, 'warning');
+      }
+    }
+
+    function showProgress(type) {
+      const progressBar = document.getElementById('progressBar');
+      progressBar.className = `progress-bar ${type}`;
+      document.getElementById('progressContainer').classList.add('show');
+    }
+
+    function hideProgress() {
+      setTimeout(() => {
+        document.getElementById('progressContainer').classList.remove('show');
+      }, 500);
+    }
+
+    function updateProgress(current, total, type, message) {
+      const percentage = Math.round((current / total) * 100);
+      const progressBar = document.getElementById('progressBar');
+      const progressText = document.getElementById('progressText');
+      
+      progressBar.style.width = percentage + '%';
+      progressBar.textContent = percentage + '%';
+      progressText.textContent = message || `Processing ${current} of ${total}...`;
+    }
+
+    function showResults(total, success, failed) {
+      document.getElementById('totalProcessed').textContent = total;
+      document.getElementById('successCount').textContent = success;
+      document.getElementById('failedCount').textContent = failed;
+      document.getElementById('resultsSummary').classList.add('show');
+    }
+
+    function hideResults() {
+      document.getElementById('resultsSummary').classList.remove('show');
+    }
+
+    function showMessage(msg, type) {
+      const msgDiv = document.getElementById('message');
+      msgDiv.textContent = msg;
+      msgDiv.className = `message ${type}`;
+      msgDiv.style.display = 'block';
+      
+      setTimeout(() => {
+        msgDiv.style.display = 'none';
+      }, 5000);
+    }
+  </script>
+</body>
+</html>

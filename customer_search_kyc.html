@@ -1,0 +1,1621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Anvitha Finance - Customer Search & KYC Report</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      padding: 20px;
+      padding-left: 100px;
+      min-height: 100vh;
+    }
+    
+    /* ===== SIDEBAR STYLES (from entry.html) ===== */
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 80px;
+      height: 100vh;
+      background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 0;
+      gap: 15px;
+      box-shadow: 2px 0 15px rgba(0,0,0,0.2);
+      z-index: 1000;
+    }
+    
+    .sidebar-logo {
+      width: 50px;
+      height: 50px;
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: white;
+      font-weight: bold;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
+    }
+    
+    .sidebar-btn {
+      width: 55px;
+      height: 55px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      position: relative;
+      color: white;
+    }
+    
+    .sidebar-btn:hover {
+      transform: translateX(5px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar-btn.home {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .sidebar-btn.print {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    
+    .sidebar-btn.reset {
+      background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+    
+    .sidebar-btn.emi-history {
+      background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+    }
+    
+    .sidebar-tooltip {
+      position: absolute;
+      left: 70px;
+      background: rgba(0,0,0,0.9);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      white-space: nowrap;
+      font-size: 12px;
+      font-weight: 500;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+      z-index: 1001;
+    }
+    
+    .sidebar-btn:hover .sidebar-tooltip {
+      opacity: 1;
+    }
+    /* ===== END SIDEBAR STYLES ===== */
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+    }
+    
+    .header {
+      padding: 30px;
+      text-align: center;
+      background: linear-gradient(135deg, #2c3e50, #3498db);
+      color: #fff;
+      position: relative;
+    }
+    
+    .content {
+      padding: 30px;
+    }
+    
+    .search-section {
+      background: #f8f9fa;
+      padding: 25px;
+      border-radius: 10px;
+      margin-bottom: 25px;
+      border: 1px solid #e9ecef;
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+    
+    input, select {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #e6e9ee;
+      background: #fbfcfd;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+    
+    input:focus, select:focus {
+      outline: none;
+      border-color: #3498db;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 12px 20px;
+      border-radius: 8px;
+      border: none;
+      background: #3498db;
+      color: #fff;
+      cursor: pointer;
+      margin-right: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.3s;
+    }
+    
+    .btn:hover {
+      background: #2980b9;
+      transform: translateY(-1px);
+    }
+    
+    .btn.success {
+      background: #27ae60;
+    }
+    
+    .btn.success:hover {
+      background: #229954;
+    }
+    
+    .btn.warning {
+      background: #f39c12;
+    }
+    
+    .btn.warning:hover {
+      background: #e67e22;
+    }
+    
+    .btn.info {
+      background: #17a2b8;
+    }
+    
+    .btn.info:hover {
+      background: #138496;
+    }
+    
+    .message {
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: none;
+      font-weight: 500;
+    }
+    
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+      color: #666;
+    }
+
+    .loan-status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+
+    .loan-status-badge.active {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .loan-status-badge.closed {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .kyc-report {
+      display: none;
+      background: #fff;
+      border: 2px solid #2c3e50;
+      margin-top: 20px;
+      position: relative;
+    }
+    
+    .report-header {
+      background: linear-gradient(135deg, #2c3e50, #3498db);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      position: relative;
+    }
+    
+    .company-logo {
+      position: absolute;
+      left: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 60px;
+      height: 60px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: bold;
+    }
+    
+    .report-content {
+      padding: 30px;
+    }
+    
+    .info-section {
+      margin-bottom: 25px;
+      clear: both;
+    }
+    
+    .info-title {
+      background: #2c3e50;
+      color: white;
+      padding: 10px 15px;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+    
+    .signatures-section {
+      margin-top: 40px;
+      page-break-inside: avoid;
+    }
+    
+    .signature-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 30px;
+      margin-top: 40px;
+    }
+    
+    .signature-box {
+      text-align: center;
+      padding: 20px;
+      border: 1px solid #ddd;
+      min-height: 100px;
+    }
+    
+    .signature-line {
+      border-top: 1px solid #333;
+      margin-top: 60px;
+      padding-top: 10px;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+    
+    .stamp-area {
+      text-align: center;
+      margin-top: 30px;
+      padding: 20px;
+      border: 2px dashed #666;
+      background: #f8f9fa;
+    }
+    
+    .report-actions {
+      margin-top: 20px;
+      text-align: center;
+      padding: 20px;
+      background: #f8f9fa;
+      border-top: 1px solid #dee2e6;
+    }
+    
+    .emi-history {
+      display: none;
+      margin-top: 20px;
+      animation: slideDown 0.5s ease-out;
+      transform-origin: top;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    
+    .emi-history.show {
+      display: block;
+    }
+    
+    .emi-history.hiding {
+      animation: slideUp 0.3s ease-in forwards;
+    }
+    
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-50px) scaleY(0.3);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scaleY(1);
+      }
+    }
+    
+    @keyframes slideUp {
+      from {
+        opacity: 1;
+        transform: translateY(0) scaleY(1);
+      }
+      to {
+        opacity: 0;
+        transform: translateY(-50px) scaleY(0.3);
+      }
+    }
+    
+    .history-header {
+      background: linear-gradient(135deg, #17a2b8, #138496);
+      color: white;
+      padding: 20px 25px;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    
+    .history-header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #f093fb 0%, #f5576c 50%, #4facfe 100%);
+    }
+    
+    .history-header-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 18px;
+    }
+    
+    .history-header-actions {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      padding: 20px;
+      background: #f8f9fa;
+    }
+    
+    .stat-box {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      border: 1px solid #dee2e6;
+    }
+    
+    .stat-value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #2c3e50;
+      margin-bottom: 5px;
+    }
+    
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+    }
+    
+    .emi-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    
+    .emi-table th {
+      background: #2c3e50;
+      color: white;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+    }
+    
+    .emi-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .emi-table tr:nth-child(even) {
+      background: #f8f9fa;
+    }
+    
+    .status-paid {
+      background: #d4edda;
+      color: #155724;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    
+    .status-pending {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    
+    .status-partial {
+      background: #fff3cd;
+      color: #856404;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    
+    /* ===== TOAST NOTIFICATION STYLES ===== */
+    .toast-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 9999;
+      display: none;
+      animation: fadeIn 0.3s ease-out;
+    }
+    
+    .toast-backdrop.show {
+      display: block;
+    }
+    
+    .toast-container-center {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10000;
+      max-width: 500px;
+      width: 90%;
+    }
+    
+    .toast {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      margin-bottom: 10px;
+      padding: 20px 24px;
+      display: none;
+      animation: slideInScale 0.3s ease-out;
+      position: relative;
+      border-left: 5px solid;
+    }
+    
+    .toast.show {
+      display: block;
+    }
+    
+    .toast.success {
+      border-left-color: #27ae60;
+    }
+    
+    .toast.error {
+      border-left-color: #e74c3c;
+    }
+    
+    .toast.loading {
+      border-left-color: #3498db;
+    }
+    
+    .toast-content {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    
+    .toast-icon {
+      font-size: 24px;
+      font-weight: bold;
+      min-width: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .toast.success .toast-icon {
+      color: #27ae60;
+    }
+    
+    .toast.error .toast-icon {
+      color: #e74c3c;
+    }
+    
+    .toast.loading .toast-icon {
+      color: #3498db;
+    }
+    
+    .toast-message {
+      flex: 1;
+      color: #333;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    
+    .toast-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: #999;
+      cursor: pointer;
+      padding: 0;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    
+    .toast-close:hover {
+      color: #333;
+    }
+    
+    .toast-spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #3498db;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spinToast 1s linear infinite;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes slideInScale {
+      from {
+        transform: scale(0.7);
+        opacity: 0;
+      }
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+    
+    @keyframes slideOut {
+      from {
+        transform: scale(1);
+        opacity: 1;
+      }
+      to {
+        transform: scale(0.7);
+        opacity: 0;
+      }
+    }
+    
+    .toast.hiding {
+      animation: slideOut 0.3s ease-out forwards;
+    }
+    
+    @keyframes spinToast {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    /* ===== END TOAST STYLES ===== */
+
+    /* ===== PRINT STYLES (matching entry.html EXACTLY) ===== */
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+        padding-left: 0;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      
+      .sidebar { display: none !important; }
+      
+      .container {
+        box-shadow: none;
+        border-radius: 0;
+        max-width: 100%;
+        background: white;
+        padding: 20px;
+      }
+      
+      .header, .search-section, .report-actions { display: none; }
+      
+      /* Report Header - matching entry.html */
+      .report-header {
+        text-align: center;
+        font-weight: bold;
+        font-size: 16px;
+        margin-bottom: 10px;
+        border-bottom: 2px solid #000;
+        padding-bottom: 10px;
+        background: transparent !important;
+        color: #000 !important;
+      }
+      
+      .report-header h2 {
+        font-size: 16px !important;
+        margin-bottom: 5px !important;
+        color: #000 !important;
+        font-weight: bold !important;
+      }
+      
+      .report-header > div > div {
+        font-size: 11px !important;
+        color: #000 !important;
+      }
+      
+      .company-logo { display: none !important; }
+      
+      .report-content { padding: 0 !important; }
+      
+      /* Section styling - like entry.html */
+      .info-section {
+        margin-bottom: 10px !important;
+        page-break-inside: avoid;
+      }
+      
+      .info-title {
+        font-weight: bold !important;
+        text-decoration: underline !important;
+        margin-top: 6px !important;
+        margin-bottom: 5px !important;
+        font-size: 11px !important;
+        padding: 0 !important;
+        background: transparent !important;
+        color: #000 !important;
+        border: none !important;
+      }
+      
+      #customerDataList {
+        background: transparent !important;
+        padding: 0 !important;
+      }
+      
+      /* List items - matching entry.html exactly */
+      #customerDataList > div {
+        display: flex !important;
+        margin-bottom: 2px !important;
+        font-size: 11px !important;
+        padding: 0 !important;
+        background: transparent !important;
+        border: none !important;
+      }
+      
+      #customerDataList > div > div:first-child {
+        font-weight: bold !important;
+        width: 45% !important;
+        font-size: 11px !important;
+        color: #000 !important;
+        word-wrap: break-word;
+      }
+      
+      #customerDataList > div > div:last-child {
+        width: 55% !important;
+        font-size: 11px !important;
+        color: #000 !important;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+      }
+      
+      /* Hide signatures in print */
+      .signatures-section { display: none !important; }
+      
+      /* Section dividers */
+      .info-section::after {
+        content: '';
+        display: block;
+        border-bottom: 1px solid #999;
+        margin: 5px 0;
+      }
+      
+      /* EMI History print styles */
+      .emi-history {
+        margin-top: 10px !important;
+      }
+      
+      .history-header {
+        background: transparent !important;
+        color: #000 !important;
+        border: none !important;
+        padding: 0 0 5px 0 !important;
+        font-weight: bold !important;
+        text-decoration: underline !important;
+        font-size: 11px !important;
+        justify-content: flex-start !important;
+      }
+      
+      .history-header::before { display: none; }
+      .history-header-actions { display: none !important; }
+      
+      .history-header-title {
+        color: #000 !important;
+        font-size: 11px !important;
+      }
+      
+      /* Stats as list items */
+      .stats-grid {
+        padding: 0 !important;
+        gap: 0 !important;
+        background: transparent !important;
+        display: block !important;
+        margin-bottom: 10px !important;
+      }
+      
+      .stat-box {
+        padding: 0 !important;
+        display: flex !important;
+        margin-bottom: 2px !important;
+        background: transparent !important;
+        border: none !important;
+        text-align: left !important;
+      }
+      
+      .stat-label {
+        font-weight: bold !important;
+        font-size: 11px !important;
+        width: 45% !important;
+        text-transform: none !important;
+        color: #000 !important;
+      }
+      
+      .stat-label::after { content: ':'; }
+      
+      .stat-value {
+        font-size: 11px !important;
+        font-weight: normal !important;
+        width: 55% !important;
+        color: #000 !important;
+        margin-bottom: 0 !important;
+      }
+      
+      /* EMI Table */
+      .emi-table {
+        font-size: 10px !important;
+        margin-top: 10px !important;
+        border: 1px solid #000 !important;
+      }
+      
+      .emi-table th {
+        padding: 4px 3px !important;
+        font-size: 10px !important;
+        background: #e8e8e8 !important;
+        color: #000 !important;
+        border: 1px solid #000 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      
+      .emi-table td {
+        padding: 3px 2px !important;
+        font-size: 10px !important;
+        border: 1px solid #000 !important;
+      }
+      
+      .status-paid, .status-pending, .status-partial {
+        background: transparent !important;
+        color: #000 !important;
+        padding: 0 !important;
+        font-size: 10px !important;
+        font-weight: normal !important;
+      }
+      
+      .loan-status-badge { display: none !important; }
+      
+      @page {
+        size: A4;
+        margin: 10mm;
+      }
+      
+      html, body {
+        width: 210mm;
+        height: 297mm;
+      }
+    }
+
+    
+    @media (max-width: 768px) {
+      body {
+        padding-left: 80px;
+      }
+      .sidebar {
+        width: 60px;
+      }
+      .sidebar-btn {
+        width: 45px;
+        height: 45px;
+        font-size: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar Navigation (from entry.html) -->
+  <div class="sidebar">
+    <div class="sidebar-logo">💰</div>
+    <button class="sidebar-btn home" onclick="window.location.href='index.html'">
+      <span>🏠</span>
+      <div class="sidebar-tooltip">Home</div>
+    </button>
+    <button class="sidebar-btn reset" onclick="clearSearch()">
+      <span>↻</span>
+      <div class="sidebar-tooltip">Reset</div>
+    </button>
+    <button class="sidebar-btn print" onclick="printReport()">
+      <span>🖨️</span>
+      <div class="sidebar-tooltip">Print</div>
+    </button>
+    <button class="sidebar-btn emi-history" onclick="toggleEMIHistory()">
+      <span>💳</span>
+      <div class="sidebar-tooltip">EMI Payment History</div>
+    </button>
+  </div>
+
+  <!-- Toast Backdrop -->
+  <div class="toast-backdrop" id="toastBackdrop"></div>
+  
+  <!-- Toast Container -->
+  <div class="toast-container-center" id="toastContainer"></div>
+
+  <div class="container">
+    <div class="header">
+      <h1 style="margin-bottom: 8px;">Customer Search & KYC Report</h1>
+      <div style="opacity: 0.9;">Search customers and generate detailed KYC reports (includes closed loans)</div>
+    </div>
+
+    <div class="content">
+      <div id="message" class="message"></div>
+      <div id="loading" class="loading">📄 Loading customer information...</div>
+
+      <!-- Search Section -->
+      <div class="search-section">
+        <h3 style="margin-bottom: 20px; color: #2c3e50;">🔍 Search Customer Information</h3>
+        
+        <div class="form-row">
+          <div>
+            <label for="searchType">Search By</label>
+            <select id="searchType" onchange="updateSearchPlaceholder()">
+              <option value="loanNo">Loan Number</option>
+              <option value="customerName">Customer Name</option>
+              <option value="mobile">Mobile Number</option>
+              <option value="vehicleReg">Vehicle Registration</option>
+            </select>
+          </div>
+          <div>
+            <label for="searchValue">Search Value <span style="color: #e74c3c;">*</span></label>
+            <input 
+              id="searchValue" 
+              type="text" 
+              placeholder="Enter loan number to search"
+              required
+            />
+          </div>
+          <div style="display: flex; align-items: end; gap: 10px;">
+            <button class="btn" onclick="searchCustomer()">🔍 Search Customer</button>
+            <button class="btn warning" onclick="clearSearch()">🗑️ Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Customer Data Display -->
+      <div id="customerDataDisplay" class="kyc-report">
+        <div class="report-header">
+          <div class="company-logo">AF</div>
+          <div>
+            <h2 style="margin-bottom: 5px;">ANVITHA FINANCE</h2>
+            <div style="font-size: 14px; opacity: 0.9;">Complete Customer Information <span id="loanStatusBadge"></span></div>
+            <div style="font-size: 12px; opacity: 0.8; margin-top: 5px;" id="reportDate"></div>
+          </div>
+        </div>
+
+        <div class="report-content">
+          <div class="info-section">
+            <div class="info-title">COMPLETE CUSTOMER DATA</div>
+            <div id="customerDataList" style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+              <!-- Data will be populated here -->
+            </div>
+          </div>
+
+          <!-- Signatures Section -->
+          <div class="signatures-section">
+            <div class="info-title">SIGNATURES & VERIFICATION</div>
+            <div class="signature-row">
+              <div class="signature-box">
+                <div style="text-align: center; margin-bottom: 20px; font-weight: bold;">Customer</div>
+                <div class="signature-line">Customer Signature</div>
+                <div style="margin-top: 10px; font-size: 12px;" id="customerSignatureName">-</div>
+              </div>
+              <div class="signature-box">
+                <div style="text-align: center; margin-bottom: 20px; font-weight: bold;">Surety Holder</div>
+                <div class="signature-line">Surety Signature</div>
+                <div style="margin-top: 10px; font-size: 12px;" id="suretySignatureName">-</div>
+              </div>
+              <div class="signature-box">
+                <div style="text-align: center; margin-bottom: 20px; font-weight: bold;">Anvitha Finance</div>
+                <div class="signature-line">Authorized Signature</div>
+                <div style="margin-top: 10px; font-size: 12px;">Management Representative</div>
+              </div>
+            </div>
+            
+            <div class="stamp-area">
+              <strong>ANVITHA FINANCE OFFICIAL SEAL/STAMP</strong><br>
+              <small>(Place official company stamp here)</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="report-actions">
+          <button class="btn success" onclick="printReport()">🖨️ Print Customer Report</button>
+          <button class="btn info" onclick="toggleEMIHistory()">📊 <span id="emiToggleText">View EMI Payment History</span></button>
+          <button class="btn warning" onclick="hideReport()">❌ Close Report</button>
+        </div>
+
+        <!-- EMI Payment History (Inside Customer Report) -->
+        <div id="emiHistory" class="emi-history">
+          <div class="history-header">
+            <div class="history-header-title">
+              <span style="font-size: 24px;">📊</span>
+              <span>EMI Payment History <span id="historyLoanStatus"></span></span>
+            </div>
+            <div class="history-header-actions">
+              <button class="btn success" onclick="printEMIHistoryOnly()" style="margin: 0; padding: 10px 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">🖨️ Print History</button>
+            </div>
+          </div>
+
+          <div class="stats-grid" style="border-radius: 0;">
+            <div class="stat-box">
+              <div class="stat-value" id="totalEMIs">0</div>
+              <div class="stat-label">Total EMIs</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value" id="paidEMIs">0</div>
+              <div class="stat-label">Paid EMIs</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value" id="pendingEMIs">0</div>
+              <div class="stat-label">Pending EMIs</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value" id="totalCollected">₹0</div>
+              <div class="stat-label">Total Collected</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value" id="remainingAmount">₹0</div>
+              <div class="stat-label">Remaining Amount</div>
+            </div>
+          </div>
+
+          <div style="overflow-x: auto; padding: 20px; background: white;">
+            <table class="emi-table">
+              <thead>
+                <tr>
+                  <th>EMI #</th>
+                  <th>Due Date</th>
+                  <th>EMI Amount</th>
+                  <th>Amount Paid</th>
+                  <th>Payment Date</th>
+                  <th>Collection ID</th>
+                  <th>Status</th>
+                  <th>Outstanding</th>
+                </tr>
+              </thead>
+              <tbody id="emiTableBody">
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+  <script>
+    // Configuration
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzPBMML2B8a6dMXMFL78dBIEeSRGG8yEhk2xn9BBEO_kx1kfan_Re73qOsIKAsjkQ8/exec';
+    const SECRET = 'ANVITHA_SUPER_SECRET_2025';
+
+    // Global variables
+    let currentCustomer = null;
+    let currentLoanNumber = null;
+    let isClosedLoan = false;
+
+    // ===== TOAST NOTIFICATION SYSTEM =====
+    let currentLoadingToast = null;
+
+    function showToast(message, type = 'success', duration = 5000) {
+      const container = document.getElementById('toastContainer');
+      const backdrop = document.getElementById('toastBackdrop');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      
+      let icon = '✔';
+      if (type === 'error') icon = '✕';
+      if (type === 'loading') icon = '<div class="toast-spinner"></div>';
+      
+      toast.innerHTML = `
+        <div class="toast-content">
+          <div class="toast-icon">${icon}</div>
+          <div class="toast-message">${message}</div>
+          ${type !== 'loading' ? '<button class="toast-close" onclick="closeToast(this)">×</button>' : ''}
+        </div>
+      `;
+      
+      container.appendChild(toast);
+      backdrop.classList.add('show');
+      setTimeout(() => toast.classList.add('show'), 10);
+      
+      if (type !== 'loading' && duration > 0) {
+        setTimeout(() => hideToast(toast), duration);
+      }
+      
+      return toast;
+    }
+
+    function hideToast(toast) {
+      const backdrop = document.getElementById('toastBackdrop');
+      const container = document.getElementById('toastContainer');
+      
+      toast.classList.add('hiding');
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+        if (container.children.length === 0) {
+          backdrop.classList.remove('show');
+        }
+      }, 300);
+    }
+
+    function closeToast(button) {
+      const toast = button.closest('.toast');
+      hideToast(toast);
+    }
+
+    function hideLoadingToasts() {
+      const loadingToasts = document.querySelectorAll('.toast.loading');
+      loadingToasts.forEach(toast => hideToast(toast));
+      if (currentLoadingToast) {
+        hideToast(currentLoadingToast);
+        currentLoadingToast = null;
+      }
+    }
+
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('searchValue').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          searchCustomer();
+        }
+      });
+
+      document.getElementById('reportDate').textContent = new Date().toLocaleDateString('en-IN');
+    });
+
+    // Update search placeholder
+    function updateSearchPlaceholder() {
+      const searchType = document.getElementById('searchType').value;
+      const searchInput = document.getElementById('searchValue');
+      
+      const placeholders = {
+        'loanNo': 'Enter loan number to search',
+        'customerName': 'Enter customer name to search',
+        'mobile': 'Enter mobile number to search',
+        'vehicleReg': 'Enter vehicle registration number'
+      };
+      
+      searchInput.placeholder = placeholders[searchType] || 'Enter search value';
+    }
+
+    // Show message - Updated to use toast notifications
+    function showMessage(text, type = 'success') {
+      showToast(text, type, type === 'error' ? 7000 : 6000);
+      
+      // Keep old message element hidden for compatibility
+      const messageEl = document.getElementById('message');
+      messageEl.style.display = 'none';
+    }
+
+    // Show/hide loading - Updated to use toast
+    function showLoading(show = true) {
+      // Hide old loading element
+      document.getElementById('loading').style.display = 'none';
+      
+      if (show) {
+        if (!currentLoadingToast) {
+          currentLoadingToast = showToast('📄 Loading customer information...', 'loading', 0);
+        }
+      } else {
+        if (currentLoadingToast) {
+          hideToast(currentLoadingToast);
+          currentLoadingToast = null;
+        }
+        hideLoadingToasts();
+      }
+    }
+
+    // Search customer - searches both active and closed loans
+    async function searchCustomer() {
+      const searchType = document.getElementById('searchType').value;
+      const searchValue = document.getElementById('searchValue').value.trim();
+      
+      if (!searchValue) {
+        showMessage('Please enter a search value', 'error');
+        return;
+      }
+
+      try {
+        showLoading(true);
+        
+        // Search in both active and closed loan sheets
+        const url = `${SCRIPT_URL}?action=searchCustomersAllSheets&${searchType}=${encodeURIComponent(searchValue)}&secret=${encodeURIComponent(SECRET)}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        showLoading(false);
+        
+        if (data.status === 'success' && data.data && data.data.length > 0) {
+          currentCustomer = data.data[0];
+          isClosedLoan = data.isClosed || false;
+          currentLoanNumber = currentCustomer['Loan No'] || currentCustomer['Loan Number'];
+          populateCustomerData(currentCustomer);
+          document.getElementById('customerDataDisplay').style.display = 'block';
+          
+          // Reset EMI history state when loading new customer
+          const emiHistoryDiv = document.getElementById('emiHistory');
+          const toggleText = document.getElementById('emiToggleText');
+          emiHistoryDiv.style.display = 'none';
+          emiHistoryDiv.classList.remove('show', 'hiding');
+          if (toggleText) toggleText.textContent = 'View EMI Payment History';
+          
+          // Update loan status badge
+          const statusBadge = document.getElementById('loanStatusBadge');
+          if (isClosedLoan) {
+            statusBadge.innerHTML = '<span class="loan-status-badge closed">CLOSED LOAN</span>';
+            showMessage('Closed loan found! Complete archived data report generated successfully.', 'success');
+          } else {
+            statusBadge.innerHTML = '<span class="loan-status-badge active">ACTIVE LOAN</span>';
+            showMessage('Customer found! Complete data report generated successfully.', 'success');
+          }
+        } else {
+          hideReport();
+          showMessage('No customer found with the provided search criteria (searched in active and closed loans)', 'error');
+        }
+      } catch (error) {
+        showLoading(false);
+        showMessage('Error searching customer: ' + error.message, 'error');
+      }
+    }
+
+    // Populate Customer Data
+    function populateCustomerData(customer) {
+      const customerDataList = document.getElementById('customerDataList');
+      let html = '';
+      
+      // Note: This function dynamically displays ALL customer fields
+      Object.keys(customer).forEach(key => {
+        if (key !== '__rowNum' && 
+            key !== 'Interest' && 
+            key !== 'S No' &&
+            key !== 'Loan Closure Date' &&
+            key !== 'Column_d') {
+          const value = customer[key];
+          let displayValue = value === '' || value === null || value === undefined ? '-' : value;
+          
+          let formattedValue = displayValue;
+          
+          if (key.toLowerCase().includes('date') || key === 'Ins valid upto') {
+            formattedValue = formatDateField(displayValue);
+          } else {
+            const cleanValue = String(displayValue).replace(/,/g, '');
+            const numericValue = parseFloat(cleanValue);
+            
+            if (displayValue !== '-' && !isNaN(numericValue) && numericValue > 0) {
+              if (key === 'Rate of intt' || key === 'Rate of Interest') {
+                formattedValue = `${displayValue}%`;
+              } else if (key.toLowerCase().includes('amount') || key.toLowerCase().includes('amt') || 
+                  key.toLowerCase().includes('emi') || key.toLowerCase().includes('principal') ||
+                  key.toLowerCase().includes('intt per') || key.toLowerCase().includes('total intt')) {
+                formattedValue = `₹${numericValue.toLocaleString()}`;
+              }
+            }
+          }
+
+          html += `
+            <div style="display: flex; margin-bottom: 8px; padding: 8px; background: white; border-radius: 4px; border-left: 3px solid #3498db;">
+              <div style="font-weight: 600; color: #2c3e50; min-width: 300px; flex-shrink: 0;">${key}:</div>
+              <div style="color: #444; flex: 1; margin-left: 15px;">${formattedValue}</div>
+            </div>
+          `;
+        }
+      });
+
+      customerDataList.innerHTML = html;
+
+      document.getElementById('customerSignatureName').textContent = 
+        customer['Name of the customer'] || 
+        customer['Customer Name'] || 
+        customer['Name'] || '-';
+        
+      document.getElementById('suretySignatureName').textContent = 
+        customer['Name of the surety holder'] || 
+        customer['Surety Holder Name'] ||
+        customer['Surety Name'] || 
+        customer['Guarantor Name'] || '-';
+    }
+
+    // Helper function to format date fields
+    function formatDateField(dateValue) {
+      if (!dateValue || dateValue === '-') return '-';
+      
+      try {
+        if (typeof dateValue === 'string' && dateValue.match(/^\d{2}-\d{2}-\d{4}$/)) {
+          return dateValue;
+        }
+        
+        let date;
+        
+        if (dateValue instanceof Date) {
+          date = dateValue;
+        } else if (typeof dateValue === 'string') {
+          if (dateValue.includes('T') || dateValue.includes('Z')) {
+            date = new Date(dateValue);
+          } else {
+            date = new Date(dateValue);
+          }
+        } else {
+          date = new Date(dateValue);
+        }
+        
+        if (isNaN(date.getTime())) {
+          return dateValue.toString();
+        }
+        
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        
+        return `${day}-${month}-${year}`;
+      } catch (error) {
+        return dateValue.toString();
+      }
+    }
+
+    // Toggle EMI History - Expand/Collapse under customer details
+    async function toggleEMIHistory() {
+      if (!currentLoanNumber) {
+        showMessage('Please search for a customer first to view EMI payment history', 'error');
+        return;
+      }
+
+      const emiHistoryDiv = document.getElementById('emiHistory');
+      const toggleText = document.getElementById('emiToggleText');
+      
+      // Check if already showing
+      if (emiHistoryDiv.classList.contains('show')) {
+        // Hide it
+        emiHistoryDiv.classList.remove('show');
+        emiHistoryDiv.classList.add('hiding');
+        toggleText.textContent = 'View EMI Payment History';
+        
+        setTimeout(() => {
+          emiHistoryDiv.style.display = 'none';
+          emiHistoryDiv.classList.remove('hiding');
+        }, 300);
+        return;
+      }
+
+      // Show and load EMI history
+      try {
+        showLoading(true);
+        
+        // Show EMI history with animation
+        emiHistoryDiv.style.display = 'block';
+        
+        // Trigger animation by adding class after a tiny delay
+        setTimeout(() => {
+          emiHistoryDiv.classList.add('show');
+          toggleText.textContent = 'Hide EMI Payment History';
+        }, 10);
+        
+        // Smooth scroll to EMI history
+        setTimeout(() => {
+          emiHistoryDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
+        
+        // Fetch EMI schedule from appropriate sheet
+        const scheduleAction = isClosedLoan ? 'getClosedEMISchedule' : 'getEMISchedule';
+        const scheduleUrl = `${SCRIPT_URL}?action=${scheduleAction}&loanNo=${encodeURIComponent(currentLoanNumber)}&secret=${encodeURIComponent(SECRET)}`;
+        const scheduleResponse = await fetch(scheduleUrl);
+        const scheduleData = await scheduleResponse.json();
+        
+        // Fetch collection records from appropriate sheet
+        const collectionAction = isClosedLoan ? 'searchClosedEMIRecords' : 'searchEMIRecords';
+        const collectionUrl = `${SCRIPT_URL}?action=${collectionAction}&loanNo=${encodeURIComponent(currentLoanNumber)}&secret=${encodeURIComponent(SECRET)}`;
+        const collectionResponse = await fetch(collectionUrl);
+        const collectionData = await collectionResponse.json();
+        
+        showLoading(false);
+        
+        // Update history loan status badge
+        const historyStatus = document.getElementById('historyLoanStatus');
+        if (isClosedLoan) {
+          historyStatus.innerHTML = '<span class="loan-status-badge closed">CLOSED</span>';
+        } else {
+          historyStatus.innerHTML = '<span class="loan-status-badge active">ACTIVE</span>';
+        }
+        
+        if (scheduleData.status === 'success' && Array.isArray(scheduleData.schedule)) {
+          populateEMIHistory(scheduleData.schedule, collectionData.records || []);
+          showMessage(`EMI payment history loaded successfully ${isClosedLoan ? '(from closed loans archive)' : ''}`, 'success');
+        } else {
+          showMessage('Error loading EMI history', 'error');
+        }
+        
+      } catch (error) {
+        showLoading(false);
+        showMessage('Error loading EMI history: ' + error.message, 'error');
+      }
+    }
+
+    // Populate EMI History
+    function populateEMIHistory(schedule, collections) {
+      const collectionMap = {};
+      collections.forEach(col => {
+        const emiMonth = col['EMI Month'] || '';
+        if (!collectionMap[emiMonth]) {
+          collectionMap[emiMonth] = [];
+        }
+        collectionMap[emiMonth].push(col);
+      });
+
+      let totalEMIs = schedule.length;
+      let paidEMIs = 0;
+      let pendingEMIs = 0;
+      let totalCollected = 0;
+
+      schedule.forEach(emi => {
+        const status = (emi['Status'] || '').toLowerCase();
+        const amountPaid = parseFloat(emi['Amount Paid'] || 0);
+        
+        if (status === 'paid') {
+          paidEMIs++;
+        } else {
+          pendingEMIs++;
+        }
+        
+        totalCollected += amountPaid;
+      });
+
+      const totalAmtString = (currentCustomer['Total amt to be paid'] || '0').toString().replace(/,/g, '');
+      const totalAmountToBePaid = parseFloat(totalAmtString);
+      const remainingAmount = totalAmountToBePaid - totalCollected;
+
+      document.getElementById('totalEMIs').textContent = totalEMIs;
+      document.getElementById('paidEMIs').textContent = paidEMIs;
+      document.getElementById('pendingEMIs').textContent = pendingEMIs;
+      document.getElementById('totalCollected').textContent = `₹${totalCollected.toLocaleString()}`;
+      document.getElementById('remainingAmount').textContent = `₹${Math.round(remainingAmount).toLocaleString()}`;
+
+      function formatDate(dateValue) {
+        if (!dateValue) return '-';
+        
+        try {
+          let date;
+          
+          if (dateValue instanceof Date) {
+            date = dateValue;
+          } else if (typeof dateValue === 'string') {
+            if (dateValue.includes('T') || dateValue.includes('Z')) {
+              date = new Date(dateValue);
+            } else if (dateValue.includes('-') && dateValue.split('-').length === 3) {
+              const parts = dateValue.split('-');
+              if (parts[0].length === 4) {
+                date = new Date(dateValue);
+              } else {
+                date = new Date(parts[2], parts[1] - 1, parts[0]);
+              }
+            } else {
+              date = new Date(dateValue);
+            }
+          } else {
+            date = new Date(dateValue);
+          }
+          
+          if (isNaN(date.getTime())) {
+            return dateValue.toString();
+          }
+          
+          const day = String(date.getDate()).padStart(2, '0');
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const year = date.getFullYear();
+          
+          return `${day}-${month}-${year}`;
+        } catch (error) {
+          return dateValue.toString();
+        }
+      }
+
+      const tbody = document.getElementById('emiTableBody');
+      tbody.innerHTML = '';
+
+      schedule.forEach(emi => {
+        const emiNumber = emi['EMI Number'] || '';
+        const dueDate = emi['Due Date'] || '';
+        const emiAmount = parseFloat(emi['EMI Amount'] || 0);
+        const amountPaid = parseFloat(emi['Amount Paid'] || 0);
+        const paymentDate = emi['Payment Date'] || '';
+        const status = emi['Status'] || 'Pending';
+        const outstanding = parseFloat(emi['Outstanding Balance'] || 0);
+        
+        const collections = collectionMap[emiNumber] || [];
+        const latestCollection = collections.length > 0 ? collections[collections.length - 1] : null;
+        const actualPaymentDate = latestCollection ? latestCollection['Collection Date'] : paymentDate;
+        const collectionId = latestCollection ? (latestCollection['Collection ID'] || '-') : '-';
+
+        const row = document.createElement('tr');
+        
+        const statusClass = status.toLowerCase() === 'paid' ? 'status-paid' : 
+                           (status.toLowerCase() === 'partial' ? 'status-partial' : 'status-pending');
+        
+        row.innerHTML = `
+          <td>${emiNumber}</td>
+          <td>${formatDate(dueDate)}</td>
+          <td>₹${emiAmount.toLocaleString()}</td>
+          <td>₹${amountPaid.toLocaleString()}</td>
+          <td>${formatDate(actualPaymentDate)}</td>
+          <td>${collectionId}</td>
+          <td><span class="${statusClass}">${status}</span></td>
+          <td>₹${outstanding.toLocaleString()}</td>
+        `;
+        
+        tbody.appendChild(row);
+      });
+    }
+
+    // Hide EMI History and show customer report
+    function hideEMIHistory() {
+      const emiHistoryDiv = document.getElementById('emiHistory');
+      
+      // Add hiding class for reverse animation
+      emiHistoryDiv.classList.remove('show');
+      emiHistoryDiv.classList.add('hiding');
+      
+      // Wait for animation to complete before hiding
+      setTimeout(() => {
+        emiHistoryDiv.style.display = 'none';
+        emiHistoryDiv.classList.remove('hiding');
+        document.getElementById('customerDataDisplay').style.display = 'block';
+        
+        // Smooth scroll back to customer display
+        document.getElementById('customerDataDisplay').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 300);
+    }
+
+    // Print EMI Payment History Only
+    function printEMIHistoryOnly() {
+      // Store original display states
+      const customerDisplay = document.getElementById('customerDataDisplay');
+      const searchSection = document.querySelector('.search-section');
+      const originalCustomerDisplay = customerDisplay.style.display;
+      const originalSearchDisplay = searchSection.style.display;
+      
+      // Hide customer display and search section
+      customerDisplay.style.display = 'none';
+      searchSection.style.display = 'none';
+      
+      // Print
+      window.print();
+      
+      // Restore original states after print dialog closes
+      setTimeout(() => {
+        customerDisplay.style.display = originalCustomerDisplay;
+        searchSection.style.display = originalSearchDisplay;
+      }, 100);
+    }
+
+    // Print Report
+    function printReport() {
+      if (!currentCustomer) {
+        showMessage('Please search for a customer first', 'error');
+        return;
+      }
+      
+      // Hide EMI history if showing
+      const emiHistory = document.getElementById('emiHistory');
+      const originalEMIDisplay = emiHistory.style.display;
+      emiHistory.style.display = 'none';
+      
+      // Print customer report
+      window.print();
+      
+      // Restore EMI history state
+      setTimeout(() => {
+        emiHistory.style.display = originalEMIDisplay;
+      }, 100);
+    }
+
+    // Hide Report
+    function hideReport() {
+      const emiHistoryDiv = document.getElementById('emiHistory');
+      const toggleText = document.getElementById('emiToggleText');
+      
+      // Reset EMI history state
+      emiHistoryDiv.style.display = 'none';
+      emiHistoryDiv.classList.remove('show', 'hiding');
+      if (toggleText) toggleText.textContent = 'View EMI Payment History';
+      
+      // Hide customer display
+      document.getElementById('customerDataDisplay').style.display = 'none';
+      
+      // Reset customer data
+      currentCustomer = null;
+      currentLoanNumber = null;
+      isClosedLoan = false;
+    }
+
+    // Clear Search
+    function clearSearch() {
+      document.getElementById('searchType').value = 'loanNo';
+      document.getElementById('searchValue').value = '';
+      updateSearchPlaceholder();
+      hideReport();
+      showMessage('Search cleared', 'success');
+    }
+  </script>
+</body>
+</html>

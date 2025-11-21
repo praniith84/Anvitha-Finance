@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Monthly EMI Collection Report - Anvitha Finance</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: 'Segoe UI', Tahoma, Arial, sans-serif; 
+      background: linear-gradient(135deg, #667eea, #764ba2); 
+      padding: 20px; 
+    }
+    .container { 
+      max-width: 1400px; 
+      margin: 0 auto; 
+      background: #fff; 
+      border-radius: 12px; 
+      overflow: hidden; 
+      box-shadow: 0 20px 40px rgba(0,0,0,0.15); 
+    }
+    .header { 
+      padding: 30px; 
+      text-align: center; 
+      background: linear-gradient(135deg, #2c3e50, #3498db); 
+      color: #fff; 
+    }
+    .header h1 {
+      font-size: 2.2rem;
+      margin-bottom: 8px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    .header-subtitle {
+      opacity: 0.9;
+      font-size: 1.1rem;
+    }
+    .back-btn { 
+      position: absolute; 
+      left: 20px; 
+      top: 50%; 
+      transform: translateY(-50%); 
+      background: rgba(255,255,255,0.15); 
+      padding: 10px 16px; 
+      border-radius: 20px; 
+      color: #fff; 
+      text-decoration: none;
+      border: 1px solid rgba(255,255,255,0.3);
+      transition: all 0.3s;
+    }
+    .back-btn:hover { background: rgba(255,255,255,0.25); }
+    .content { padding: 30px; }
+    .loading { 
+      text-align: center; 
+      padding: 50px; 
+    }
+    .spinner { 
+      border: 4px solid #f3f3f3; 
+      border-top: 4px solid #3498db; 
+      border-radius: 50%; 
+      width: 60px; 
+      height: 60px; 
+      animation: spin 1s linear infinite; 
+      margin: 0 auto 20px; 
+    }
+    @keyframes spin { 
+      0% { transform: rotate(0deg); } 
+      100% { transform: rotate(360deg); } 
+    }
+
+    /* Date Selector */
+    .date-selector {
+      background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+      padding: 25px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .date-selector h3 {
+      margin-bottom: 15px;
+      color: #2c3e50;
+      font-size: 1.3rem;
+    }
+    .date-inputs {
+      display: flex;
+      gap: 15px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .date-group {
+      flex: 1;
+      min-width: 200px;
+    }
+    .date-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      color: #2c3e50;
+      font-size: 0.95rem;
+    }
+    .date-group input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #dee2e6;
+      border-radius: 6px;
+      font-size: 1rem;
+      transition: border-color 0.3s;
+    }
+    .date-group input:focus {
+      outline: none;
+      border-color: #3498db;
+    }
+    .btn-generate {
+      padding: 12px 30px;
+      background: linear-gradient(135deg, #3498db, #2980b9);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: all 0.3s;
+      box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+    }
+    .btn-generate:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(52, 152, 219, 0.4);
+    }
+
+    /* Summary Cards */
+    .summary-section {
+      margin-bottom: 30px;
+    }
+    .summary-section h3 {
+      padding: 10px 15px;
+      background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
+      border-radius: 6px;
+      display: inline-block;
+      color: #2c3e50;
+      font-weight: 600;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .summary-card {
+      background: linear-gradient(135deg, #fff, #f8f9fa);
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      border-left: 5px solid;
+      transition: transform 0.3s;
+    }
+    .summary-card:hover {
+      transform: translateY(-3px);
+    }
+    .summary-card.total { border-left-color: #3498db; }
+    .summary-card.principal { border-left-color: #27ae60; }
+    .summary-card.interest { border-left-color: #e74c3c; }
+    .summary-card.customers { border-left-color: #f39c12; }
+    .summary-card h3 {
+      font-size: 0.95rem;
+      color: #7f8c8d;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .summary-card .amount {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #2c3e50;
+    }
+    .summary-card .count {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #2c3e50;
+    }
+
+    /* Breakdown Table */
+    .breakdown-section {
+      margin-top: 30px;
+    }
+    .section-header {
+      background: linear-gradient(135deg, #2c3e50, #34495e);
+      color: #fff;
+      padding: 18px 25px;
+      border-radius: 8px 8px 0 0;
+      font-size: 1.3rem;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .section-badge {
+      background: rgba(255,255,255,0.2);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+    }
+    .table-container {
+      border: 1px solid #dee2e6;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      overflow-x: auto;
+    }
+    .breakdown-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    .breakdown-table thead {
+      background: #f8f9fa;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .breakdown-table th {
+      padding: 15px 12px;
+      text-align: left;
+      font-weight: 600;
+      color: #2c3e50;
+      border-bottom: 2px solid #dee2e6;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      transition: background 0.2s;
+    }
+    .breakdown-table th:hover {
+      background: #e9ecef;
+    }
+    .breakdown-table th.sortable::after {
+      content: ' ⇅';
+      opacity: 0.3;
+      font-size: 0.8em;
+    }
+    .breakdown-table th.sort-asc::after {
+      content: ' ↑';
+      opacity: 1;
+      color: #3498db;
+    }
+    .breakdown-table th.sort-desc::after {
+      content: ' ↓';
+      opacity: 1;
+      color: #3498db;
+    }
+    .breakdown-table th.amount-col {
+      text-align: right;
+    }
+    .breakdown-table td {
+      padding: 14px 12px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .breakdown-table td.amount-col {
+      text-align: right;
+      font-weight: 600;
+    }
+    .breakdown-table tr:hover {
+      background: #f8f9fa;
+    }
+    .breakdown-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .breakdown-table .total-row {
+      background: linear-gradient(135deg, #e8f4f8, #d4e9f1);
+      font-weight: 700;
+      border-top: 3px solid #3498db;
+    }
+    .breakdown-table .total-row td {
+      padding: 18px 12px;
+      font-size: 1.05rem;
+    }
+
+    /* Status Badges */
+    .status-badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: inline-block;
+    }
+    .status-active {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status-pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    /* Print Button */
+    .print-section {
+      text-align: right;
+      margin-bottom: 20px;
+    }
+    .btn-print {
+      padding: 12px 24px;
+      background: #27ae60;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    .btn-print:hover {
+      background: #229954;
+      transform: translateY(-2px);
+    }
+
+    /* Month Selector */
+    .quick-select {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      flex-wrap: wrap;
+    }
+    .btn-month {
+      padding: 8px 16px;
+      background: #fff;
+      border: 2px solid #3498db;
+      color: #3498db;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    .btn-month:hover {
+      background: #3498db;
+      color: #fff;
+    }
+
+    /* Error/Info Messages */
+    .message {
+      padding: 15px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: none;
+      animation: slideIn 0.3s;
+    }
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border-left: 4px solid #dc3545;
+    }
+    .message.info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border-left: 4px solid #17a2b8;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .date-selector, .print-section, .back-btn { display: none; }
+      .container { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header" style="position: relative;">
+      <a href="index.html" class="back-btn">← Back</a>
+      <h1>📊 Monthly EMI Collection Report</h1>
+      <div class="header-subtitle">Track expected EMI collections with principal and interest breakdown</div>
+    </div>
+
+    <div class="content">
+      <!-- Loading Spinner -->
+      <div class="loading" id="loadingSpinner">
+        <div class="spinner"></div>
+        <p>Loading data...</p>
+      </div>
+
+      <!-- Message Container -->
+      <div class="message" id="messageBox"></div>
+
+      <!-- Date Selector -->
+      <div class="date-selector">
+        <h3>📅 Select Report Period</h3>
+        <div class="date-inputs">
+          <div class="date-group">
+            <label>Report Month</label>
+            <input type="month" id="reportMonth" />
+          </div>
+          <button class="btn-generate" onclick="generateReport()">Generate Report</button>
+        </div>
+        <div class="quick-select">
+          <button class="btn-month" onclick="selectMonth('current')">Current Month</button>
+          <button class="btn-month" onclick="selectMonth('next')">Next Month</button>
+          <button class="btn-month" onclick="selectMonth('previous')">Previous Month</button>
+        </div>
+      </div>
+
+      <!-- Report Container -->
+      <div id="reportContainer" style="display: none;">
+        <!-- Print Button -->
+        <div class="print-section">
+          <button class="btn-print" onclick="window.print()">🖨️ Print Report</button>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="summary-section">
+          <h3 style="margin-bottom: 15px; color: #2c3e50; font-size: 1.1rem;">📊 Pending EMIs Summary (To Be Collected)</h3>
+          <div class="summary-cards">
+            <div class="summary-card total">
+              <h3>Total EMI Expected</h3>
+              <div class="amount" id="totalEMI">₹0</div>
+            </div>
+            <div class="summary-card principal">
+              <h3>Grand Principal</h3>
+              <div class="amount" id="grandPrincipal">₹0</div>
+            </div>
+            <div class="summary-card interest">
+              <h3>Grand Interest</h3>
+              <div class="amount" id="grandInterest">₹0</div>
+            </div>
+            <div class="summary-card customers">
+              <h3>Active Loans</h3>
+              <div class="count" id="activeCustomers">0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Total Monthly EMIs Section (Paid + Pending) -->
+        <div class="summary-section" style="margin-top: 30px;">
+          <h3 style="margin-bottom: 15px; color: #2c3e50; font-size: 1.1rem;">📅 Complete Month Summary (All EMIs - Paid + Pending)</h3>
+          <div class="summary-cards">
+            <div class="summary-card total" style="border-left-color: #9b59b6;">
+              <h3>Total Monthly EMI</h3>
+              <div class="amount" id="totalMonthlyEMI">₹0</div>
+            </div>
+            <div class="summary-card principal" style="border-left-color: #16a085;">
+              <h3>Total Principal</h3>
+              <div class="amount" id="totalMonthlyPrincipal">₹0</div>
+            </div>
+            <div class="summary-card interest" style="border-left-color: #e67e22;">
+              <h3>Total Interest</h3>
+              <div class="amount" id="totalMonthlyInterest">₹0</div>
+            </div>
+            <div class="summary-card customers" style="border-left-color: #34495e;">
+              <h3>Total Loans</h3>
+              <div class="count" id="totalMonthlyLoans">0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detailed Breakdown Table -->
+        <div class="breakdown-section">
+          <div class="section-header">
+            <span id="reportTitle">EMI Collection Breakdown</span>
+            <span class="section-badge" id="loanCount">0 Loans</span>
+          </div>
+          <div class="table-container">
+            <table class="breakdown-table">
+              <thead>
+                <tr>
+                  <th style="width: 40px;">S.No</th>
+                  <th>Customer Name</th>
+                  <th class="sortable" onclick="sortTable('loanNumber')" id="sortLoanNumber">Loan Number</th>
+                  <th style="width: 100px;">EMI No.</th>
+                  <th class="amount-col">EMI Amount</th>
+                  <th class="amount-col">Principal</th>
+                  <th class="amount-col">Interest</th>
+                  <th class="sortable" onclick="sortTable('dueDate')" id="sortDueDate" style="width: 120px;">Due Date</th>
+                  <th style="width: 100px; text-align: center;">Status</th>
+                </tr>
+              </thead>
+              <tbody id="breakdownTableBody">
+                <!-- Data will be populated here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Configuration
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzPBMML2B8a6dMXMFL78dBIEeSRGG8yEhk2xn9BBEO_kx1kfan_Re73qOsIKAsjkQ8/exec';
+    const SECRET = 'ANVITHA_SUPER_SECRET_2025';
+
+    let allLoans = [];
+    let allSchedules = [];
+    let reportData = [];
+    let currentSortColumn = 'dueDate';
+    let currentSortOrder = 'asc';
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      // Set default month to current month
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      document.getElementById('reportMonth').value = currentMonth;
+      
+      // Load data on page load
+      loadData();
+    });
+
+    // Quick month selection
+    function selectMonth(type) {
+      const now = new Date();
+      let targetDate = new Date(now);
+      
+      if (type === 'previous') {
+        targetDate.setMonth(now.getMonth() - 1);
+      } else if (type === 'next') {
+        targetDate.setMonth(now.getMonth() + 1);
+      }
+      
+      const monthValue = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
+      document.getElementById('reportMonth').value = monthValue;
+    }
+
+    // Show/Hide Loading
+    function showLoading(show) {
+      document.getElementById('loadingSpinner').style.display = show ? 'block' : 'none';
+    }
+
+    // Show Message
+    function showMessage(message, type = 'info') {
+      const msgBox = document.getElementById('messageBox');
+      msgBox.textContent = message;
+      msgBox.className = `message ${type}`;
+      msgBox.style.display = 'block';
+      setTimeout(() => msgBox.style.display = 'none', 5000);
+    }
+
+    // Load all data
+    async function loadData() {
+      showLoading(true);
+      try {
+        console.log('Starting data load...');
+        
+        // Fetch all loans
+        const loansUrl = `${SCRIPT_URL}?action=getAllLoans&secret=${SECRET}`;
+        console.log('Fetching loans from:', loansUrl);
+        const loansRes = await fetch(loansUrl);
+        const loansData = await loansRes.json();
+        console.log('Loans response:', loansData);
+        
+        if (loansData.status === 'success') {
+          allLoans = loansData.loans || [];
+          console.log('Loaded loans:', allLoans.length);
+        } else {
+          throw new Error('Failed to load loans: ' + (loansData.message || 'Unknown error'));
+        }
+
+        // Fetch all EMI schedules
+        const scheduleUrl = `${SCRIPT_URL}?action=getAllEMISchedule&secret=${SECRET}`;
+        console.log('Fetching schedules from:', scheduleUrl);
+        const scheduleRes = await fetch(scheduleUrl);
+        const scheduleData = await scheduleRes.json();
+        console.log('Schedule response:', scheduleData);
+        
+        if (scheduleData.status === 'success') {
+          allSchedules = scheduleData.schedule || [];
+          console.log('Loaded schedules:', allSchedules.length);
+        } else {
+          throw new Error('Failed to load schedules: ' + (scheduleData.message || 'Unknown error'));
+        }
+
+        showLoading(false);
+        showMessage('Data loaded successfully! Select a month to generate report.', 'info');
+      } catch (error) {
+        showLoading(false);
+        console.error('Error details:', error);
+        showMessage('Error loading data: ' + error.message, 'error');
+      }
+    }
+
+    // Generate Report
+    function generateReport() {
+      const monthValue = document.getElementById('reportMonth').value;
+      
+      if (!monthValue) {
+        showMessage('Please select a report month', 'error');
+        return;
+      }
+
+      if (!allLoans.length || !allSchedules.length) {
+        showMessage('Data not loaded. Please refresh the page.', 'error');
+        return;
+      }
+
+      const [year, month] = monthValue.split('-').map(Number);
+      const reportMonth = new Date(year, month - 1, 1);
+      const reportMonthEnd = new Date(year, month, 0);
+
+      // Filter schedules for selected month
+      const monthlySchedules = allSchedules.filter(schedule => {
+        const dueDate = parseDate(schedule['Due Date'] || schedule['EMI Due Date']);
+        if (!dueDate) return false;
+        
+        return dueDate >= reportMonth && dueDate <= reportMonthEnd;
+      });
+
+      if (monthlySchedules.length === 0) {
+        showMessage('No EMI schedules found for the selected month', 'error');
+        return;
+      }
+
+      // Build report data
+      reportData = []; // Reset global reportData
+      let totalEMI = 0;
+      let totalPrincipal = 0;
+      let totalInterest = 0;
+      let totalMonthlyEMI = 0;
+      let totalMonthlyPrincipal = 0;
+      let totalMonthlyInterest = 0;
+      const uniqueLoansAll = new Set();  // All loans in the month
+      const uniqueLoansPending = new Set();  // Only loans with pending EMIs
+
+      monthlySchedules.forEach(schedule => {
+        const loanNo = String(schedule['Loan Number'] || schedule['Loan No'] || '').trim();
+        const loan = allLoans.find(l => String(l['Loan No'] || '').trim() === loanNo);
+        
+        if (!loan) return;
+
+        const emiAmount = parseFloat(schedule['EMI Amount'] || 0);
+        const principal = parseFloat(schedule['Principal Component'] || schedule['Principal'] || 0);
+        const interest = parseFloat(schedule['Interest Component'] || schedule['Interest'] || 0);
+        const status = String(schedule['Status'] || 'Pending').toLowerCase();
+        const dueDate = parseDate(schedule['Due Date'] || schedule['EMI Due Date']);
+
+        reportData.push({
+          customerName: loan['Name of the customer'] || 'N/A',
+          loanNumber: loanNo,
+          emiNumber: schedule['EMI Number'] || 'N/A',
+          emiAmount: emiAmount,
+          principal: principal,
+          interest: interest,
+          dueDate: dueDate,
+          dueDateStr: formatDate(dueDate),
+          status: status === 'paid' ? 'Paid' : 'Pending'
+        });
+
+        // Count all loans for monthly total
+        uniqueLoansAll.add(loanNo);
+        
+        // Count all EMIs for monthly total (paid + pending)
+        totalMonthlyEMI += emiAmount;
+        totalMonthlyPrincipal += principal;
+        totalMonthlyInterest += interest;
+
+        // Only count pending EMIs and pending loans for collection totals
+        if (status !== 'paid') {
+          totalEMI += emiAmount;
+          totalPrincipal += principal;
+          totalInterest += interest;
+          uniqueLoansPending.add(loanNo);  // Track loans with pending EMIs
+        }
+      });
+
+      // Sort by due date
+      reportData.sort((a, b) => a.dueDate - b.dueDate);
+
+      // Display report
+      displayReport(reportData, totalEMI, totalPrincipal, totalInterest, uniqueLoansPending.size,
+                    totalMonthlyEMI, totalMonthlyPrincipal, totalMonthlyInterest, uniqueLoansAll.size, monthValue);
+    }
+
+    // Display Report
+    function displayReport(data, totalEMI, totalPrincipal, totalInterest, pendingLoansCount,
+                          totalMonthlyEMI, totalMonthlyPrincipal, totalMonthlyInterest, totalLoansCount, monthValue) {
+      // Update pending EMI summary cards
+      document.getElementById('totalEMI').textContent = formatCurrency(totalEMI);
+      document.getElementById('grandPrincipal').textContent = formatCurrency(totalPrincipal);
+      document.getElementById('grandInterest').textContent = formatCurrency(totalInterest);
+      document.getElementById('activeCustomers').textContent = pendingLoansCount;
+
+      // Update monthly total summary cards (all EMIs including paid)
+      document.getElementById('totalMonthlyEMI').textContent = formatCurrency(totalMonthlyEMI);
+      document.getElementById('totalMonthlyPrincipal').textContent = formatCurrency(totalMonthlyPrincipal);
+      document.getElementById('totalMonthlyInterest').textContent = formatCurrency(totalMonthlyInterest);
+      document.getElementById('totalMonthlyLoans').textContent = totalLoansCount;
+
+      // Update title
+      const [year, month] = monthValue.split('-');
+      const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+      document.getElementById('reportTitle').textContent = `EMI Collection Breakdown - ${monthName}`;
+      document.getElementById('loanCount').textContent = `${data.length} EMIs`;
+
+      // Populate table
+      renderTableRows();
+
+      // Reset sort indicators to default (due date ascending)
+      document.querySelectorAll('.breakdown-table th').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+      });
+      document.getElementById('sortDueDate').classList.add('sort-asc');
+      currentSortColumn = 'dueDate';
+      currentSortOrder = 'asc';
+
+      // Show report
+      document.getElementById('reportContainer').style.display = 'block';
+      document.getElementById('reportContainer').scrollIntoView({ behavior: 'smooth' });
+      showMessage('Report generated successfully!', 'info');
+    }
+
+    // Parse Date
+    function parseDate(dateStr) {
+      if (!dateStr) return null;
+      
+      // Handle ISO format
+      if (typeof dateStr === 'string' && dateStr.includes('T')) {
+        return new Date(dateStr);
+      }
+      
+      // Handle standard date format
+      const date = new Date(dateStr);
+      return isNaN(date.getTime()) ? null : date;
+    }
+
+    // Format Date
+    function formatDate(date) {
+      if (!date || isNaN(date.getTime())) return 'N/A';
+      
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      
+      return `${day}/${month}/${year}`;
+    }
+
+    // Format Currency
+    function formatCurrency(amount) {
+      return '₹' + amount.toLocaleString('en-IN', {
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 0
+      });
+    }
+
+    // Sort table function
+    function sortTable(column) {
+      if (!reportData || reportData.length === 0) {
+        showMessage('No data to sort', 'error');
+        return;
+      }
+
+      // Toggle sort order if clicking same column, otherwise default to ascending
+      if (currentSortColumn === column) {
+        currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentSortColumn = column;
+        currentSortOrder = 'asc';
+      }
+
+      // Sort the data
+      reportData.sort((a, b) => {
+        let valA, valB;
+
+        if (column === 'loanNumber') {
+          // Convert loan numbers to numbers for proper sorting
+          valA = parseInt(a.loanNumber) || 0;
+          valB = parseInt(b.loanNumber) || 0;
+        } else if (column === 'dueDate') {
+          valA = a.dueDate ? a.dueDate.getTime() : 0;
+          valB = b.dueDate ? b.dueDate.getTime() : 0;
+        }
+
+        if (currentSortOrder === 'asc') {
+          return valA - valB;
+        } else {
+          return valB - valA;
+        }
+      });
+
+      // Update sort indicators
+      document.querySelectorAll('.breakdown-table th').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+      });
+
+      const sortHeader = document.getElementById(`sort${column.charAt(0).toUpperCase() + column.slice(1)}`);
+      if (sortHeader) {
+        sortHeader.classList.add(currentSortOrder === 'asc' ? 'sort-asc' : 'sort-desc');
+      }
+
+      // Re-render the table
+      renderTableRows();
+    }
+
+    // Function to render table rows without recalculating totals
+    function renderTableRows() {
+      const tbody = document.getElementById('breakdownTableBody');
+      tbody.innerHTML = '';
+
+      reportData.forEach((row, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${index + 1}</strong></td>
+          <td><strong>${row.customerName}</strong></td>
+          <td>${row.loanNumber}</td>
+          <td style="text-align: center;">${row.emiNumber}</td>
+          <td class="amount-col">₹${row.emiAmount.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
+          <td class="amount-col">₹${row.principal.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
+          <td class="amount-col">₹${row.interest.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
+          <td>${row.dueDateStr}</td>
+          <td style="text-align: center;">
+            <span class="status-badge ${row.status === 'Paid' ? 'status-active' : 'status-pending'}">
+              ${row.status}
+            </span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Re-add the total row (calculate totals from current data)
+      let totalEMI = 0, totalPrincipal = 0, totalInterest = 0;
+      reportData.forEach(row => {
+        if (row.status === 'Pending') {
+          totalEMI += row.emiAmount;
+          totalPrincipal += row.principal;
+          totalInterest += row.interest;
+        }
+      });
+
+      const totalRow = document.createElement('tr');
+      totalRow.className = 'total-row';
+      totalRow.innerHTML = `
+        <td colspan="4" style="text-align: right;"><strong>GRAND TOTAL (Pending EMIs Only)</strong></td>
+        <td class="amount-col">₹${totalEMI.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
+        <td class="amount-col">₹${totalPrincipal.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
+        <td class="amount-col">₹${totalInterest.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
+        <td colspan="2"></td>
+      `;
+      tbody.appendChild(totalRow);
+    }
+  </script>
+</body>
+</html>

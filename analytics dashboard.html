@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Anvitha Finance — Loans Analytics (with Chart)</title>
+<style>
+  :root{--bg:#f5f7fb;--card:#fff;--accent:#3498db;--muted:#6c757d}
+  *{box-sizing:border-box}
+  body{font-family:Segoe UI,Arial,sans-serif;background:linear-gradient(180deg,#eef3fb,#f6f9ff);padding:18px}
+  .wrap{max-width:1200px;margin:0 auto}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+  h1{font-size:20px;margin:0;color:#2c3e50}
+  .controls{display:flex;gap:8px;align-items:center}
+  input[type=date],select{padding:8px;border-radius:6px;border:1px solid #d8e3f2;background:#fff}
+  button{background:var(--accent);color:#fff;padding:8px 12px;border:none;border-radius:8px;cursor:pointer;font-weight:600}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px}
+  .card{background:var(--card);padding:14px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+  .card h3{margin:0;font-size:13px;color:var(--muted)}
+  .card p{margin-top:8px;font-size:18px;font-weight:700;color:#2c3e50}
+  .main{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:16px}
+  .panel{background:var(--card);padding:14px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,0.04)}
+  table{width:100%;border-collapse:collapse;margin-top:12px}
+  th,td{padding:8px;border-bottom:1px solid #f0f0f5;text-align:left;font-size:13px}
+  th{background:#fafcff;font-weight:700}
+  .muted{color:var(--muted);font-size:13px}
+  .small{font-size:12px;color:var(--muted)}
+  .loading{padding:10px;text-align:center;color:var(--muted)}
+  canvas{max-width:100%;height:320px}
+  @media (max-width:920px){.cards{grid-template-columns:repeat(2,1fr)} .main{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>📊 Two-wheeler Loans — Analytics</h1>
+      <div class="small">Monthly principal & interest collection, totals, averages</div>
+    </div>
+
+    <div class="controls">
+      <label class="small muted">From</label>
+      <input type="date" id="fromDate" />
+      <label class="small muted">To</label>
+      <input type="date" id="toDate" />
+      <button id="refreshBtn">Refresh</button>
+    </div>
+  </header>
+
+  <div class="cards" id="kpis">
+    <div class="card">
+      <h3>Total money disbursed (all loans)</h3>
+      <p id="totalDisbursed">₹0</p>
+      <div class="small muted">Sum of Loan Amount in Ledger. Uses getAllLoans endpoint.</div>
+    </div>
+
+    <div class="card">
+      <h3>Active loan amount</h3>
+      <p id="activeAmount">₹0</p>
+      <div class="small muted">Ledger total minus Closed_Loans total (active outstanding principal estimate).</div>
+    </div>
+
+    <div class="card">
+      <h3>Collections (selected range)</h3>
+      <p id="rangeCollections">₹0</p>
+      <div class="small muted">Total amount collected between selected dates.</div>
+    </div>
+
+    <div class="card">
+      <h3>Avg principal / EMI • Avg interest / EMI</h3>
+      <p id="averages">₹0 • ₹0</p>
+      <div class="small muted">Averages calculated from collection records and EMI schedule allocation.</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="panel">
+      <h3 style="margin:0 0 8px 0">Monthly breakdown (Principal / Interest)</h3>
+      <div class="small muted">Shows month-wise totals within the selected range</div>
+
+      <!-- Chart canvas -->
+      <div style="margin-top:12px">
+        <canvas id="monthlyChart" aria-label="Monthly principal vs interest"></canvas>
+      </div>
+
+      <div id="loadingMain" class="loading" style="display:none">Loading data...</div>
+
+      <table id="monthTable" style="display:none">
+        <thead>
+          <tr><th>Month</th><th>Principal Collected</th><th>Interest Collected</th><th>Total</th></tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr style="font-weight:700"><td>Total</td><td id="tblTotalPrincipal">₹0</td><td id="tblTotalInterest">₹0</td><td id="tblTotalAll">₹0</td></tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h3 style="margin:0 0 8px 0">Quick stats</h3>
+      <div class="small muted">Realtime KPIs from getDashboardStats</div>
+      <div style="margin-top:12px">
+        <div style="display:flex;gap:10px;flex-direction:column">
+          <div><strong>Collections today:</strong> <span id="collectionsToday">₹0</span></div>
+          <div><strong>Pending EMIs:</strong> <span id="pendingEmis">0</span></div>
+          <div><strong>Overdue loans:</strong> <span id="overdueLoans">0</span></div>
+          <div><strong>Collection rate:</strong> <span id="collectionRate">0%</span></div>
+        </div>
+      </div>
+
+      <hr style="margin:12px 0">
+
+      <h4 style="margin:6px 0">Top 10 loans — principal collected (range)</h4>
+      <div id="topList" class="small muted">(loading...)</div>
+    </div>
+  </div>
+
+  <div style="margin-top:14px" class="small muted">Notes: This page calls your Apps Script endpoints (getAllLoans, getAllClosedLoans, searchEMIRecords/getReport, getEMISchedule, getDashboardStats). It uses proportional allocation to split collected amounts into principal vs interest using EMI schedule if available (same approach as in your enhanced_finance_report).</div>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+/* ====================== CONFIG - update if you use different deployment ====================== */
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzPBMML2B8a6dMXMFL78dBIEeSRGG8yEhk2xn9BBEO_kx1kfan_Re73qOsIKAsjkQ8/exec';
+const SECRET = 'ANVITHA_SUPER_SECRET_2025';
+/* ========================================================================================== */
+
+/* ---------- formatting ---------- */
+function fmt(n){ return '₹' + Number(n||0).toLocaleString('en-IN', {maximumFractionDigits:2}) }
+function iso(d){ if(!d) return ''; const dt=new Date(d); if(isNaN(dt)) return ''; return dt.toISOString().slice(0,10); }
+function monthKey(d){ const dt=new Date(d); if(isNaN(dt)) return ''; return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0'); }
+function monthLabel(key){ const [y,m]=key.split('-'); const date = new Date(y, parseInt(m,10)-1,1); return date.toLocaleString('en-IN',{month:'short',year:'numeric'}) }
+
+/* ---------- fetch helpers for your Apps Script endpoints ---------- */
+async function fetchJSON(params){
+  const url = SCRIPT_URL + '?' + new URLSearchParams(Object.assign({}, params, {secret: SECRET}));
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('Server: ' + res.status);
+  return res.json();
+}
+
+/* ---------- fetch collections in range (uses searchEMIRecords via from/to) ---------- */
+async function fetchCollectionsInRange(from, to){
+  const res = await fetchJSON({ action: 'searchEMIRecords', from: from, to: to });
+  if(res && res.status === 'success' && Array.isArray(res.records)) return res.records;
+  return [];
+}
+
+/* ---------- schedule cache & fetch ---------- */
+const scheduleCache = {};
+async function fetchScheduleForLoan(loanNo){
+  if(!loanNo) return {};
+  if(scheduleCache[loanNo]) return scheduleCache[loanNo];
+  try {
+    const res = await fetchJSON({ action: 'getEMISchedule', loanNo: loanNo });
+    const raw = (res && res.schedule && Array.isArray(res.schedule)) ? res.schedule : (Array.isArray(res) ? res : []);
+    const map = {};
+    raw.forEach(r => {
+      const emiNo = String(r['EMI Number'] || r['EMI No'] || r['EMI'] || '').toString();
+      const principal = Number(r['Principal Component'] || r['Principal'] || 0) || 0;
+      let interest = Number(r['Interest Component'] || r['Interest'] || 0) || 0;
+      const emiAmount = Number(r['EMI Amount'] || r['EMIAmount'] || r['EMI_Amount'] || r['EMI'] || 0) || 0;
+      if((interest === 0 || isNaN(interest)) && emiAmount && principal){
+        const calcI = emiAmount - principal;
+        interest = calcI > 0 ? calcI : 0;
+      }
+      map[emiNo] = { principal, interest, emiAmount };
+    });
+    scheduleCache[loanNo] = map;
+    return map;
+  } catch(e){ scheduleCache[loanNo] = {}; return {}; }
+}
+
+/* ---------- allocate paid amount proportionally ---------- */
+function allocatePrincipalInterest(paid, scheduleItem){
+  paid = Number(paid) || 0;
+  if(!scheduleItem || (scheduleItem.principal === 0 && scheduleItem.interest === 0)){
+    return { principalCollected: paid, interestCollected: 0 };
+  }
+  const p = scheduleItem.principal || 0;
+  const i = scheduleItem.interest || 0;
+  const tot = p + i;
+  if(tot > 0){
+    const pCollected = Math.round((paid * (p / tot)) * 100) / 100;
+    const iCollected = Math.round((paid - pCollected) * 100) / 100;
+    return { principalCollected: pCollected, interestCollected: iCollected };
+  }
+  return { principalCollected: paid, interestCollected: 0 };
+}
+
+/* ---------- Chart instance ---------- */
+let monthlyChartInstance = null;
+function createOrUpdateChart(labels, principalData, interestData){
+  const ctx = document.getElementById('monthlyChart').getContext('2d');
+  const datasets = [
+    {
+      label: 'Principal',
+      data: principalData,
+      backgroundColor: 'rgba(52,152,219,0.85)',
+      borderColor: 'rgba(52,152,219,1)',
+      borderWidth: 1
+    },
+    {
+      label: 'Interest',
+      data: interestData,
+      backgroundColor: 'rgba(46,204,113,0.85)',
+      borderColor: 'rgba(46,204,113,1)',
+      borderWidth: 1
+    }
+  ];
+  if(monthlyChartInstance){
+    monthlyChartInstance.data.labels = labels;
+    monthlyChartInstance.data.datasets[0].data = principalData;
+    monthlyChartInstance.data.datasets[1].data = interestData;
+    monthlyChartInstance.update();
+  } else {
+    monthlyChartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top' },
+          tooltip: {
+            callbacks: {
+              label: function(context){
+                const v = context.raw || 0;
+                return context.dataset.label + ': ₹' + Number(v).toLocaleString('en-IN', {maximumFractionDigits:2});
+              }
+            }
+          }
+        },
+        scales: {
+          x: { stacked: false },
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(value){ return '₹' + Number(value).toLocaleString('en-IN', {maximumFractionDigits:0}); }
+            }
+          }
+        }
+      }
+    });
+  }
+}
+
+/* ---------- compute + render ---------- */
+async function computeAndRender(){
+  const from = document.getElementById('fromDate').value;
+  const to = document.getElementById('toDate').value;
+  if(!from || !to){
+    const end = new Date();
+    const start = new Date(end.getFullYear(), end.getMonth()-11, 1);
+    document.getElementById('fromDate').value = iso(start);
+    document.getElementById('toDate').value = iso(end);
+  }
+
+  const f = document.getElementById('fromDate').value;
+  const t = document.getElementById('toDate').value;
+
+  document.getElementById('loadingMain').style.display = 'block';
+  document.getElementById('monthTable').style.display = 'none';
+  document.getElementById('topList').textContent = 'computing...';
+
+  try{
+    // 1) Total disbursed
+    const ledgerResp = await fetchJSON({ action: 'getAllLoans' }).catch(()=>({status:'error'}));
+    let totalDisbursed = 0;
+    let ledgerLoans = [];
+    if(ledgerResp && ledgerResp.status === 'success' && Array.isArray(ledgerResp.loans)){
+      ledgerLoans = ledgerResp.loans;
+      totalDisbursed = ledgerResp.loans.reduce((s,r) => s + (Number(r['Loan Amount']||r['Loan Amt']||r['LoanAmount']||0)||0), 0);
+    } else if(Array.isArray(ledgerResp)){
+      ledgerLoans = ledgerResp;
+      totalDisbursed = ledgerLoans.reduce((s,r) => s + (Number(r['Loan Amount']||0)||0),0);
+    }
+    document.getElementById('totalDisbursed').textContent = fmt(totalDisbursed);
+
+    // 2) Active amount estimate
+    let closedResp = await fetchJSON({ action: 'getAllClosedLoans' }).catch(()=>({status:'error'}));
+    let closedTotal = 0;
+    if(closedResp && closedResp.status === 'success' && Array.isArray(closedResp.loans)){
+      closedTotal = closedResp.loans.reduce((s,r)=> s + (Number(r['Loan Amount']||0)||0), 0);
+    }
+    const activeEstimate = Math.max(0, totalDisbursed - closedTotal);
+    document.getElementById('activeAmount').textContent = fmt(activeEstimate);
+
+    // 3) Fetch collections in range
+    const collections = await fetchCollectionsInRange(f, t);
+
+    // Build months and top loans
+    const months = {};
+    const topLoans = {};
+    for(const rec of collections){
+      const loanNo = String(rec['Loan Number'] || rec['Loan No'] || '').trim();
+      const amountPaid = Number(rec['Amount Paid'] || rec['Amount'] || 0) || 0;
+      const colDateRaw = rec['Collection Date'] || rec['CollectionDate'] || rec['Date'] || rec['Payment Date'] || '';
+      const emiMonth = String(rec['EMI Month'] || rec['EMI Number'] || rec['EMI'] || '').toString();
+      const monthk = monthKey(colDateRaw) || monthKey(new Date());
+      if(!months[monthk]) months[monthk] = { principal:0, interest:0, total:0 };
+
+      let scheduleItem = null;
+      if(loanNo && emiMonth){
+        const sched = await fetchScheduleForLoan(loanNo);
+        scheduleItem = sched[emiMonth] || sched[String(Number(emiMonth))] || null;
+      } else {
+        if(loanNo){
+          const sched = await fetchScheduleForLoan(loanNo);
+          const keys = Object.keys(sched||{});
+          scheduleItem = keys.length ? sched[keys[0]] : null;
+        }
+      }
+
+      const allocated = allocatePrincipalInterest(amountPaid, scheduleItem);
+      months[monthk].principal += allocated.principalCollected;
+      months[monthk].interest += allocated.interestCollected;
+      months[monthk].total += amountPaid;
+
+      if(loanNo){
+        if(!topLoans[loanNo]) topLoans[loanNo] = { principal:0, interest:0, total:0, customer: rec['Customer Name'] || rec['Customer'] || '' };
+        topLoans[loanNo].principal += allocated.principalCollected;
+        topLoans[loanNo].interest += allocated.interestCollected;
+        topLoans[loanNo].total += amountPaid;
+        topLoans[loanNo].customer = topLoans[loanNo].customer || (rec['Customer Name'] || '');
+      }
+    }
+
+    // Render table and compute totals
+    const tbody = document.querySelector('#monthTable tbody');
+    tbody.innerHTML = '';
+    const sortedKeys = Object.keys(months).sort();
+    let sumP=0,sumI=0,sumTot=0;
+    const labels = [];
+    const principalData = [];
+    const interestData = [];
+
+    sortedKeys.forEach(k=>{
+      const m = months[k];
+      sumP += m.principal; sumI += m.interest; sumTot += m.total;
+      labels.push(monthLabel(k));
+      principalData.push(Math.round(m.principal*100)/100);
+      interestData.push(Math.round(m.interest*100)/100);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${monthLabel(k)}</td>
+                      <td>${fmt(m.principal)}</td>
+                      <td>${fmt(m.interest)}</td>
+                      <td>${fmt(m.total)}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('tblTotalPrincipal').textContent = fmt(sumP);
+    document.getElementById('tblTotalInterest').textContent = fmt(sumI);
+    document.getElementById('tblTotalAll').textContent = fmt(sumTot);
+    document.getElementById('rangeCollections').textContent = fmt(sumTot);
+    document.getElementById('monthTable').style.display = sortedKeys.length ? '' : 'none';
+    document.getElementById('loadingMain').style.display = 'none';
+
+    // Update averages
+    const avgPrincipal = collections.length ? (sumP / collections.length) : 0;
+    const avgInterest = collections.length ? (sumI / collections.length) : 0;
+    document.getElementById('averages').textContent = `${fmt(avgPrincipal)} • ${fmt(avgInterest)}`;
+
+    // Top loans
+    const topArr = Object.entries(topLoans).map(([loanNo,v])=>({loanNo, ...v})).sort((a,b)=>b.principal - a.principal).slice(0,10);
+    if(topArr.length){
+      const div = document.getElementById('topList');
+      div.innerHTML = '<ol style="padding-left:18px;margin:8px 0 0 0">'+ topArr.map(x=>`<li style="margin:6px 0">${x.loanNo} — ${x.customer || ''} — Principal ${fmt(x.principal)} / Interest ${fmt(x.interest)} (Total ${fmt(x.total)})</li>`).join('') +'</ol>';
+    } else {
+      document.getElementById('topList').textContent = 'No collection records in this range';
+    }
+
+    // Dashboard stats
+    const dash = await fetchJSON({ action: 'getDashboardStats' }).catch(()=>({status:'error'}));
+    if(dash && dash.status === 'success' && dash.stats){
+      document.getElementById('collectionsToday').textContent = fmt(dash.stats.totalCollectionsToday || 0);
+      document.getElementById('pendingEmis').textContent = dash.stats.pendingEMIs || 0;
+      document.getElementById('overdueLoans').textContent = dash.stats.overdueLoans || dash.stats.overdue || 0;
+      document.getElementById('collectionRate').textContent = (dash.stats.collectionRate || 0) + '%';
+    } else {
+      document.getElementById('collectionsToday').textContent = fmt(0);
+    }
+
+    // Create / update chart
+    createOrUpdateChart(labels, principalData, interestData);
+
+  } catch(err){
+    console.error(err);
+    document.getElementById('loadingMain').textContent = 'Error: ' + err.message;
+    document.getElementById('loadingMain').style.display = '';
+  }
+}
+
+/* ---------- init ---------- */
+(function init(){
+  const end = new Date();
+  const start = new Date(end.getFullYear(), end.getMonth()-11, 1);
+  document.getElementById('fromDate').value = iso(start);
+  document.getElementById('toDate').value = iso(end);
+  document.getElementById('refreshBtn').addEventListener('click', computeAndRender);
+  computeAndRender();
+})();
+</script>
+</body>
+</html>
